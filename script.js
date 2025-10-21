@@ -126,10 +126,6 @@ function applySelections(state) {
   setLayerSrc("layer-second", PARTS.second[state.second]?.file);
   // After changing images, resync heights when images load
   queueHeightSyncOnImages();
-  // Ensure default view shows the whole watch
-  if (typeof window !== 'undefined' && window.__resetZoomToFit) {
-    window.__resetZoomToFit();
-  }
 }
 
 function randomizeState() {
@@ -147,7 +143,7 @@ function randomizeState() {
 // Modal helpers
 let modalContext = { groupKey: null, index: null };
 let heightSyncQueued = false;
-let zoom = 0.7; // default: show whole watch smaller
+let zoom = 1; // default: 100%
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 2;
 const ZOOM_STEP = 0.1;
@@ -277,9 +273,6 @@ document.addEventListener("DOMContentLoaded", () => {
       if (mRow) renderMobileRow("m-row", items, g.key, state);
       // Ensure row scrolls back to start on change
       if (mRow) mRow.scrollTo({ left: 0, behavior: "smooth" });
-      if (typeof window !== 'undefined' && window.__resetZoomToFit) {
-        window.__resetZoomToFit();
-      }
       updateNavState();
     }
     setPage(0);
@@ -412,7 +405,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   // expose helpers so other functions can reset to fit
   window.__applyZoom = applyZoom;
-  window.__resetZoomToFit = function() { zoom = 0.7; applyZoom(); };
+  window.__resetZoomToFit = function() { zoom = 1; applyZoom(); };
   if (zoomInBtn) {
     zoomInBtn.addEventListener('click', () => {
       zoom = Math.min(MAX_ZOOM, Math.round((zoom + ZOOM_STEP) * 100) / 100);
