@@ -1,18 +1,40 @@
 /* Minimal custom styles; Tailwind handles most layout and colors. */
 img { image-rendering: auto; }
 
+/* Part item card: clearer border + rounded corners */
 .thumb {
-  @apply relative border border-slate-200/70 rounded-lg overflow-hidden bg-white hover:shadow cursor-pointer transition-shadow p-3 h-40 flex items-center justify-center w-full;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 160px; /* ~h-40 */
+  padding: 12px; /* ~p-3 */
+  background: #fff;
+  border: 1px solid rgba(203, 213, 225, 0.9); /* slate-300-ish */
+  border-radius: 12px; /* rounded-md/lg */
+  overflow: hidden;
+  cursor: pointer;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.05s ease;
 }
+.thumb:hover { border-color: rgba(148, 163, 184, 1); /* slate-400 */ box-shadow: 0 1px 6px rgba(15, 23, 42, 0.08); }
+.thumb.selected { border-color: #1f2937; /* slate-800 */ box-shadow: 0 0 0 2px rgba(31, 41, 55, 0.9); }
 .thumb img {
   width: 100%;
   height: 100%;
   object-fit: contain;
   display: block;
 }
-.thumb .label { @apply absolute bottom-0 left-0 right-0 bg-white/80 text-[11px] px-1 py-0.5 text-center; }
-.thumb.selected { @apply ring-2 ring-slate-800 border-slate-300; }
-.thumb:not(.selected):hover { @apply ring-1 ring-slate-300; }
+.thumb .label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.85);
+  font-size: 11px;
+  padding: 2px 4px;
+  text-align: center;
+}
 
 #image-modal.hidden { display: none; }
 #mobile-overlay.hidden { display: none; }
@@ -20,9 +42,23 @@ img { image-rendering: auto; }
 /* Drawer smoother animation */
 #mobile-drawer { will-change: transform; }
 
-/* Make preview image feel larger on wide screens */
+/* Ensure preview scales safely */
+.preview-box { overflow: hidden; }
+
+/* Desktop: adaptive sizing so it scales with screen */
 @media (min-width: 1024px) {
-  #preview .preview-box { max-width: 800px; margin-left: auto; margin-right: auto; }
+  #preview .preview-box {
+    width: 100%;
+    max-width: none; /* fill its 60% column fully */
+    aspect-ratio: 4 / 5; /* keep a pleasant shape */
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+/* Align preview content to top (horizontal center, top aligned vertical) */
+#preview .preview-box img {
+  object-position: top center;
 }
 
 /* Mobile: make watch fill width with square ratio */
@@ -57,7 +93,20 @@ details > summary::-webkit-details-marker {
 
 
 /* Part section headings and grids */
-.part-title { @apply text-sm font-semibold tracking-tight text-brandText pt-2 border-t border-slate-100; }
+.part-title {
+  font-size: 16px; /* larger */
+  font-weight: 700; /* bold */
+  letter-spacing: -0.01em;
+  color: var(--brandText, #0e141b);
+  margin-top: 16px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(226, 232, 240, 0.9); /* slate-200 */
+}
+#controls-panel .part-title:first-of-type {
+  border-top: 0;
+  padding-top: 0;
+  margin-top: 0;
+}
 .part-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

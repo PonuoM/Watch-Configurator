@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -28,9 +28,6 @@
     <header class="border-b border-slate-200/70 backdrop-blur supports-[backdrop-filter]:bg-white/60 sticky top-0 z-10">
       <div class="w-full max-w-none flex items-center justify-between py-3 px-4">
         <div class="flex items-center gap-3">
-          <button id="open-mobile" class="md:hidden inline-flex items-center justify-center w-9 h-9 rounded-md border border-slate-300 bg-white text-slate-700" aria-label="Open parts">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-          </button>
           <div class="text-[18px] font-semibold tracking-tight">Watch Configurator</div>
         </div>
         <nav class="hidden md:block space-x-4 text-sm text-brandMuted">
@@ -40,29 +37,36 @@
       </div>
     </header>
 
-    <main class="w-full max-w-none p-4 grid gap-6 md:grid-cols-[minmax(460px,680px)_1fr]">
+    <main class="w-full max-w-none p-4 grid gap-6 md:grid-cols-[40%_60%]">
       <section id="preview" class="order-1 md:order-2">
         <div class="bg-brandBg rounded-2xl p-6 lg:p-8 shadow-sm ring-1 ring-white/60 md:sticky md:top-4">
           <div class="relative w-full aspect-square md:aspect-[3/4] select-none preview-box" id="preview-box">
-            <!-- Bracelet -->
-            <img id="layer-bracelet" alt="bracelet" class="absolute inset-0 w-full h-full object-contain" />
-            <!-- Outer frame / Bezel -->
-            <img id="layer-outer" alt="outer frame" class="absolute inset-0 w-full h-full object-contain" />
-            <!-- Inner frame / Chapter ring -->
-            <img id="layer-inner" alt="inner frame" class="absolute inset-0 w-full h-full object-contain" />
-            <!-- Dial -->
-            <img id="layer-dial" alt="dial" class="absolute inset-0 w-full h-full object-contain" />
-            <!-- Hands (hour/minute) -->
-            <img id="layer-hands" alt="hands" class="absolute inset-0 w-full h-full object-contain" />
-            <!-- Seconds hand -->
-            <img id="layer-second" alt="second hand" class="absolute inset-0 w-full h-full object-contain" />
+            <div id="zoom-inner" class="w-full h-full relative">
+              <!-- Bracelet -->
+              <img id="layer-bracelet" alt="bracelet" class="absolute inset-0 w-full h-full object-contain" />
+              <!-- Outer frame / Bezel -->
+              <img id="layer-outer" alt="outer frame" class="absolute inset-0 w-full h-full object-contain" />
+              <!-- Inner frame / Chapter ring -->
+              <img id="layer-inner" alt="inner frame" class="absolute inset-0 w-full h-full object-contain" />
+              <!-- Dial -->
+              <img id="layer-dial" alt="dial" class="absolute inset-0 w-full h-full object-contain" />
+              <!-- Hands (hour/minute) -->
+              <img id="layer-hands" alt="hands" class="absolute inset-0 w-full h-full object-contain" />
+              <!-- Seconds hand -->
+              <img id="layer-second" alt="second hand" class="absolute inset-0 w-full h-full object-contain" />
+            </div>
+            <div id="zoom-controls" class="hidden md:flex items-center gap-1 absolute top-2 right-2 z-10">
+              <button id="zoom-out" class="px-2 py-1 rounded-md border border-slate-300 bg-white text-slate-700 text-sm">-</button>
+              <button id="zoom-reset" class="px-2 py-1 rounded-md border border-slate-300 bg-white text-slate-700 text-[11px]">100%</button>
+              <button id="zoom-in" class="px-2 py-1 rounded-md bg-slate-800 text-white text-sm">+</button>
+            </div>
           </div>
         </div>
       </section>
 
       <section id="controls" class="hidden md:block md:order-1">
         <div class="bg-white rounded-2xl border border-slate-200/70 p-4 shadow-sm ring-1 ring-white/60 space-y-6 md:sticky md:top-4 overflow-auto" id="controls-panel">
-          <p class="text-xs text-brandMuted">Click to select • Double‑click for large preview</p>
+          <p class="text-xs text-brandMuted">Click to select - Double-click for large preview</p>
 
           <h3 class="part-title">Dial</h3>
           <div id="grid-dial" class="part-grid"></div>
@@ -94,45 +98,19 @@
     <section id="mobile-config" class="md:hidden px-4 pb-4">
       <div class="bg-white rounded-2xl border border-slate-200/70 p-4 shadow-sm ring-1 ring-white/60">
         <div class="text-center">
-          <div id="m-title" class="text-base font-semibold">Case</div>
-          <div id="m-subtitle" class="text-sm text-brandMuted">—</div>
+          <div id="m-title" class="text-base font-semibold">Dial</div>
+          <div id="m-subtitle" class="text-sm text-brandMuted">Choose a dial design</div>
         </div>
         <div id="m-row" class="mt-3 mobile-row"></div>
-        <div class="flex items-center justify-end mt-3">
+        <div class="flex items-center justify-between mt-3">
+          <div id="m-page" class="text-xs text-brandMuted">1/6</div>
           <div class="flex items-center gap-2">
-            <button id="m-prev" type="button" class="px-3 py-1.5 rounded-md border border-slate-300 bg-white text-sm">Prev</button>
-            <button id="m-next" type="button" class="px-3 py-1.5 rounded-md bg-slate-800 text-white text-sm">Next</button>
+            <button id="m-prev" type="button" class="px-3 py-1.5 rounded-md border border-slate-300 bg-white text-sm disabled:opacity-50 disabled:cursor-not-allowed">Prev</button>
+            <button id="m-next" type="button" class="px-3 py-1.5 rounded-md bg-slate-800 text-white text-sm disabled:opacity-50 disabled:cursor-not-allowed">Next</button>
           </div>
         </div>
       </div>
     </section>
-
-    <!-- Mobile parts overlay (left drawer) -->
-    <div id="mobile-overlay" class="fixed inset-0 hidden md:hidden z-20">
-      <div id="mobile-backdrop" class="absolute inset-0 bg-black/60"></div>
-      <aside id="mobile-drawer" class="fixed left-0 top-0 h-full w-[78vw] max-w-[380px] bg-white p-4 overflow-auto transform -translate-x-full transition-transform duration-300 ease-out">
-        <div class="flex items-center justify-between pb-2 border-b border-slate-200">
-          <div class="text-sm font-semibold">Parts</div>
-          <button id="close-mobile" class="px-3 py-1.5 rounded-md border border-slate-300 bg-white text-sm">Close</button>
-        </div>
-        <div class="space-y-6 pt-3">
-          <h3 class="part-title">Dial</h3>
-          <div id="mgrid-dial" class="part-grid"></div>
-          <h3 class="part-title">Hands (Hour/Minute)</h3>
-          <div id="mgrid-hands" class="part-grid"></div>
-          <h3 class="part-title">Second Hand</h3>
-          <div id="mgrid-second" class="part-grid"></div>
-          <h3 class="part-title">Outer Bezel</h3>
-          <div id="mgrid-outer" class="part-grid"></div>
-          <h3 class="part-title">Inner Ring</h3>
-          <div id="mgrid-inner" class="part-grid"></div>
-          <h3 class="part-title">Bracelet</h3>
-          <div id="mgrid-bracelet" class="part-grid"></div>
-        </div>
-      </aside>
-    </div>
-
-    
 
     <!-- Modal for large preview -->
     <div id="image-modal" class="fixed inset-0 hidden items-center justify-center bg-black/60 p-4">
@@ -152,5 +130,3 @@
     <script src="./script.js"></script>
   </body>
   </html>
-
-
