@@ -78,6 +78,34 @@ function renderGrid(gridId, items, groupKey, state) {
   });
 }
 
+// Render a compact horizontal row (mobile)
+function renderMobileRow(rowId, items, groupKey, state) {
+  const row = $(rowId);
+  row.innerHTML = '';
+  items.forEach((it, idx) => {
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'thumb';
+    const img = document.createElement('img');
+    img.src = IMG_BASE + it.file;
+    img.alt = it.label;
+    img.draggable = false;
+    const label = document.createElement('div');
+    label.className = 'label';
+    label.textContent = it.label;
+    if (state[groupKey] === idx) card.classList.add('selected');
+    card.appendChild(img);
+    card.appendChild(label);
+    row.appendChild(card);
+    card.addEventListener('click', () => {
+      state[groupKey] = idx;
+      applySelections(state);
+      renderMobileRow(rowId, items, groupKey, state);
+    });
+    card.addEventListener('dblclick', () => openModal(groupKey, idx));
+  });
+}
+
 function renderGroupSelection(gridId, selectedIdx) {
   const grid = $(gridId);
   [...grid.children].forEach((el, i) => {
@@ -111,6 +139,19 @@ function randomizeState() {
 // Modal helpers
 let modalContext = { groupKey: null, index: null };
 let heightSyncQueued = false;
+function syncHeights() {
+  const previewCard = document.querySelector('#preview > div');
+  const panel = document.getElementById('controls-panel');
+  if (!previewCard || !panel) return;
+  if (window.matchMedia('(min-width: 768px)').matches) {
+    const rect = previewCard.getBoundingClientRect();
+    panel.style.maxHeight = '';
+    panel.style.height = Math.floor(rect.height) + 'px';
+  } else {
+    panel.style.height = '';
+    panel.style.maxHeight = '';
+  }
+}
 function queueHeightSyncOnImages() {
   if (heightSyncQueued) return;
   heightSyncQueued = true;
@@ -154,19 +195,52 @@ document.addEventListener('DOMContentLoaded', () => {
   renderGrid('grid-outer', PARTS.outer, 'outer', state);
   renderGrid('grid-inner', PARTS.inner, 'inner', state);
   renderGrid('grid-bracelet', PARTS.bracelet, 'bracelet', state);
+  // Mobile overlay grids (share same data/state)
+  renderGrid('mgrid-dial', PARTS.dial, 'dial', state);
+  renderGrid('mgrid-hands', PARTS.hands, 'hands', state);
+  renderGrid('mgrid-second', PARTS.second, 'second', state);
+  renderGrid('mgrid-outer', PARTS.outer, 'outer', state);
+  renderGrid('mgrid-inner', PARTS.inner, 'inner', state);
+  renderGrid('mgrid-bracelet', PARTS.bracelet, 'bracelet', state);
+
+  // Mobile bottom carousel logic (only if elements exist)
+  const mTitle = $('#m-title');
+  const mSubtitle = $('#m-subtitle');
+  const mPrev = $('#m-prev');
+  const mNext = $('#m-next');
+  const mRow = $('#m-row');
+  if (mPrev && mNext) {
+    // Show all watch parts on mobile stepper
+    const groups = [
+      { key: 'dial', title: 'Dial', subtitle: 'เลือกหน้าปัด' },
+      { key: 'hands', title: 'Hands', subtitle: 'เลือกเข็มชั่วโมง/นาที' },
+      { key: 'second', title: 'Second Hand', subtitle: 'เลือกเข็มวินาที' },
+      { key: 'outer', title: 'Outer Bezel', subtitle: 'เลือกกรอบนอก' },
+      { key: 'inner', title: 'Inner Ring', subtitle: 'เลือกกรอบใน' },
+      { key: 'bracelet', title: 'Bracelet', subtitle: 'เลือกสาย' }
+    ];
+    let page = 0;
+    function setPage(p) {
+      page = (p + groups.length) % groups.length;
+      const g = groups[page];
+      if (mTitle) mTitle.textContent = g.title;
+      if (mSubtitle) mSubtitle.textContent = g.subtitle;
+      const items = PARTS[g.key];
+      if (mRow) renderMobileRow('m-row', items, g.key, state);
+      // Ensure row scrolls back to start on change
+      if (mRow) mRow.scrollTo({ left: 0, behavior: 'smooth' });
+    }
+    setPage(0);
+    const prevHandler = (e) => { e.preventDefault(); setPage(page - 1); };
+    const nextHandler = (e) => { e.preventDefault(); setPage(page + 1); };
+    mPrev.addEventListener('click', prevHandler);
+    mNext.addEventListener('click', nextHandler);
+    mPrev.addEventListener('touchend', prevHandler, { passive: true });
+    mNext.addEventListener('touchend', nextHandler, { passive: true });
+  }
 
   applySelections(state);
 
-  // Sync controls panel height roughly to preview box height on load/resize
-  function syncHeights() {
-    const previewCard = document.querySelector('#preview > div');
-    const panel = document.getElementById('controls-panel');
-    if (!previewCard || !panel) return;
-    const rect = previewCard.getBoundingClientRect();
-    // Set explicit height equal to preview for perfect match
-    panel.style.maxHeight = '';
-    panel.style.height = Math.floor(rect.height) + 'px';
-  }
   syncHeights();
   window.addEventListener('resize', syncHeights);
   queueHeightSyncOnImages();
@@ -209,6 +283,35 @@ document.addEventListener('DOMContentLoaded', () => {
     renderGrid(`grid-${modalContext.groupKey}`, PARTS[modalContext.groupKey], modalContext.groupKey, state);
     closeModal();
   });
+
+  // Mobile overlay controls
+  const openMobile = $('open-mobile');
+  const closeMobile = $('close-mobile');
+  const mobileOverlay = $('mobile-overlay');
+  if (openMobile && closeMobile && mobileOverlay) {
+    openMobile.addEventListener('click', () => {
+      mobileOverlay.classList.remove('hidden');
+      const drawer = document.getElementById('mobile-drawer');
+      if (drawer) {
+        // start off-screen then animate in
+        requestAnimationFrame(() => {
+          drawer.style.transform = 'translateX(0)';
+        });
+      }
+    });
+    closeMobile.addEventListener('click', () => {
+      const drawer = document.getElementById('mobile-drawer');
+      if (drawer) drawer.style.transform = 'translateX(-100%)';
+      setTimeout(() => mobileOverlay.classList.add('hidden'), 300);
+    });
+    mobileOverlay.addEventListener('click', (e) => {
+      if (e.target.id === 'mobile-backdrop') {
+        const drawer = document.getElementById('mobile-drawer');
+        if (drawer) drawer.style.transform = 'translateX(-100%)';
+        setTimeout(() => mobileOverlay.classList.add('hidden'), 300);
+      }
+    });
+  }
 });
 
 

@@ -22,12 +22,18 @@
       };
     </script>
     <link rel="stylesheet" href="./styles.css" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' ry='3' fill='%230e141b'/%3E%3Cpath d='M4 8h8M8 4v8' stroke='%23e7edf3' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E" />
   </head>
   <body class="min-h-screen bg-gradient-to-b from-slate-50 to-[#e7edf3] text-brandText" style="font-family: Manrope, system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, 'Apple Color Emoji', 'Segoe UI Emoji'">
     <header class="border-b border-slate-200/70 backdrop-blur supports-[backdrop-filter]:bg-white/60 sticky top-0 z-10">
       <div class="w-full max-w-none flex items-center justify-between py-3 px-4">
-        <div class="text-[18px] font-semibold tracking-tight">Watch Configurator</div>
-        <nav class="space-x-4 text-sm text-brandMuted">
+        <div class="flex items-center gap-3">
+          <button id="open-mobile" class="md:hidden inline-flex items-center justify-center w-9 h-9 rounded-md border border-slate-300 bg-white text-slate-700" aria-label="Open parts">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          <div class="text-[18px] font-semibold tracking-tight">Watch Configurator</div>
+        </div>
+        <nav class="hidden md:block space-x-4 text-sm text-brandMuted">
           <a href="#preview" class="hover:underline">Preview</a>
           <a href="#controls" class="hover:underline">Customize</a>
         </nav>
@@ -36,8 +42,8 @@
 
     <main class="w-full max-w-none p-4 grid gap-6 md:grid-cols-[minmax(460px,680px)_1fr]">
       <section id="preview" class="order-1 md:order-2">
-        <div class="bg-brandBg rounded-2xl p-6 lg:p-8 shadow-sm ring-1 ring-white/60 sticky top-4">
-          <div class="relative w-full aspect-[3/4] select-none preview-box" id="preview-box">
+        <div class="bg-brandBg rounded-2xl p-6 lg:p-8 shadow-sm ring-1 ring-white/60 md:sticky md:top-4">
+          <div class="relative w-full aspect-square md:aspect-[3/4] select-none preview-box" id="preview-box">
             <!-- Bracelet -->
             <img id="layer-bracelet" alt="bracelet" class="absolute inset-0 w-full h-full object-contain" />
             <!-- Outer frame / Bezel -->
@@ -54,7 +60,7 @@
         </div>
       </section>
 
-      <section id="controls" class="md:order-1">
+      <section id="controls" class="hidden md:block md:order-1">
         <div class="bg-white rounded-2xl border border-slate-200/70 p-4 shadow-sm ring-1 ring-white/60 space-y-6 md:sticky md:top-4 overflow-auto" id="controls-panel">
           <p class="text-xs text-brandMuted">Click to select • Double‑click for large preview</p>
 
@@ -83,6 +89,48 @@
         </div>
       </section>
     </main>
+
+    <!-- Mobile bottom config panel (under preview) -->
+    <section id="mobile-config" class="md:hidden px-4 pb-4">
+      <div class="bg-white rounded-2xl border border-slate-200/70 p-4 shadow-sm ring-1 ring-white/60">
+        <div class="text-center">
+          <div id="m-title" class="text-base font-semibold">Case</div>
+          <div id="m-subtitle" class="text-sm text-brandMuted">—</div>
+        </div>
+        <div id="m-row" class="mt-3 mobile-row"></div>
+        <div class="flex items-center justify-end mt-3">
+          <div class="flex items-center gap-2">
+            <button id="m-prev" type="button" class="px-3 py-1.5 rounded-md border border-slate-300 bg-white text-sm">Prev</button>
+            <button id="m-next" type="button" class="px-3 py-1.5 rounded-md bg-slate-800 text-white text-sm">Next</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Mobile parts overlay (left drawer) -->
+    <div id="mobile-overlay" class="fixed inset-0 hidden md:hidden z-20">
+      <div id="mobile-backdrop" class="absolute inset-0 bg-black/60"></div>
+      <aside id="mobile-drawer" class="fixed left-0 top-0 h-full w-[78vw] max-w-[380px] bg-white p-4 overflow-auto transform -translate-x-full transition-transform duration-300 ease-out">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-200">
+          <div class="text-sm font-semibold">Parts</div>
+          <button id="close-mobile" class="px-3 py-1.5 rounded-md border border-slate-300 bg-white text-sm">Close</button>
+        </div>
+        <div class="space-y-6 pt-3">
+          <h3 class="part-title">Dial</h3>
+          <div id="mgrid-dial" class="part-grid"></div>
+          <h3 class="part-title">Hands (Hour/Minute)</h3>
+          <div id="mgrid-hands" class="part-grid"></div>
+          <h3 class="part-title">Second Hand</h3>
+          <div id="mgrid-second" class="part-grid"></div>
+          <h3 class="part-title">Outer Bezel</h3>
+          <div id="mgrid-outer" class="part-grid"></div>
+          <h3 class="part-title">Inner Ring</h3>
+          <div id="mgrid-inner" class="part-grid"></div>
+          <h3 class="part-title">Bracelet</h3>
+          <div id="mgrid-bracelet" class="part-grid"></div>
+        </div>
+      </aside>
+    </div>
 
     
 

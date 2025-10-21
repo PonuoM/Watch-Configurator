@@ -15,11 +15,30 @@ img { image-rendering: auto; }
 .thumb:not(.selected):hover { @apply ring-1 ring-slate-300; }
 
 #image-modal.hidden { display: none; }
+#mobile-overlay.hidden { display: none; }
+
+/* Drawer smoother animation */
+#mobile-drawer { will-change: transform; }
 
 /* Make preview image feel larger on wide screens */
 @media (min-width: 1024px) {
   #preview .preview-box { max-width: 800px; margin-left: auto; margin-right: auto; }
 }
+
+/* Mobile: make watch fill width with square ratio */
+@media (max-width: 767.98px) {
+  #preview .preview-box { max-width: none; }
+}
+
+/* Mobile horizontal row for parts */
+.mobile-row {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding-bottom: 4px;
+}
+.mobile-row .thumb { flex: 0 0 calc(33.333% - 8px); height: 120px; scroll-snap-align: start; }
 
 /* Keep controls panel height synced (fallback handled by sticky+max-height) */
 #controls-panel { scrollbar-gutter: stable; }
