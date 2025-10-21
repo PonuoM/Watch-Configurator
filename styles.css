@@ -1,0 +1,49 @@
+/* Minimal custom styles; Tailwind handles most layout and colors. */
+img { image-rendering: auto; }
+
+.thumb {
+  @apply relative border border-slate-200/70 rounded-lg overflow-hidden bg-white hover:shadow cursor-pointer transition-shadow p-3 h-40 flex items-center justify-center w-full;
+}
+.thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+.thumb .label { @apply absolute bottom-0 left-0 right-0 bg-white/80 text-[11px] px-1 py-0.5 text-center; }
+.thumb.selected { @apply ring-2 ring-slate-800 border-slate-300; }
+.thumb:not(.selected):hover { @apply ring-1 ring-slate-300; }
+
+#image-modal.hidden { display: none; }
+
+/* Make preview image feel larger on wide screens */
+@media (min-width: 1024px) {
+  #preview .preview-box { max-width: 800px; margin-left: auto; margin-right: auto; }
+}
+
+/* Keep controls panel height synced (fallback handled by sticky+max-height) */
+#controls-panel { scrollbar-gutter: stable; }
+#controls-panel::-webkit-scrollbar { width: 10px; }
+#controls-panel::-webkit-scrollbar-thumb { background: rgb(203 213 225); border-radius: 8px; }
+#controls-panel::-webkit-scrollbar-track { background: rgb(248 250 252); }
+
+/* Premium accordion look without default marker */
+details > summary {
+  list-style: none;
+}
+details > summary::-webkit-details-marker {
+  display: none;
+}
+/* Remove previous accordion summary styles since sections are static now */
+
+
+/* Part section headings and grids */
+.part-title { @apply text-sm font-semibold tracking-tight text-brandText pt-2 border-t border-slate-100; }
+.part-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px; /* ~gap-3 */
+  padding-top: 8px; /* ~pt-2 */
+}
+
+
