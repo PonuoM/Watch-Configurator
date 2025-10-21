@@ -147,7 +147,7 @@ function randomizeState() {
 // Modal helpers
 let modalContext = { groupKey: null, index: null };
 let heightSyncQueued = false;
-let zoom = 0.9; // default: show whole watch a bit smaller
+let zoom = 0.7; // default: show whole watch smaller
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 2;
 const ZOOM_STEP = 0.1;
@@ -163,6 +163,12 @@ function syncHeights() {
     panel.style.height = "";
     panel.style.maxHeight = "";
   }
+}
+
+function applyHeaderHeightVar() {
+  const header = document.querySelector('header');
+  const h = header ? header.offsetHeight : 0;
+  document.documentElement.style.setProperty('--header-h', h + 'px');
 }
 function queueHeightSyncOnImages() {
   if (heightSyncQueued) return;
@@ -210,6 +216,9 @@ function closeModal() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  // Set CSS var for header height so main can fit exactly 1 screen
+  applyHeaderHeightVar();
+  window.addEventListener('resize', applyHeaderHeightVar);
   // Default state (index 0)
   const state = {
     dial: 0,
@@ -403,7 +412,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   // expose helpers so other functions can reset to fit
   window.__applyZoom = applyZoom;
-  window.__resetZoomToFit = function() { zoom = 0.9; applyZoom(); };
+  window.__resetZoomToFit = function() { zoom = 0.7; applyZoom(); };
   if (zoomInBtn) {
     zoomInBtn.addEventListener('click', () => {
       zoom = Math.min(MAX_ZOOM, Math.round((zoom + ZOOM_STEP) * 100) / 100);

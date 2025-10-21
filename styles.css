@@ -50,7 +50,7 @@ img { image-rendering: auto; }
   #preview .preview-box {
     width: 100%;
     max-width: none; /* fill its 60% column fully */
-    aspect-ratio: 4 / 5; /* keep a pleasant shape */
+    aspect-ratio: auto; /* height will be controlled by container */
     margin-left: auto;
     margin-right: auto;
   }
@@ -59,6 +59,23 @@ img { image-rendering: auto; }
 /* Align preview content to top (horizontal center, top aligned vertical) */
 #preview .preview-box img {
   object-position: top center;
+}
+
+/* Desktop: lock to one viewport and make inner panels scroll */
+@media (min-width: 768px) {
+  html,
+  body { height: 100%; overflow: hidden; }
+  main { height: calc(100vh - var(--header-h, 0px)); overflow: hidden; min-height: 0; }
+  #preview, #controls { height: 100%; min-height: 0; }
+  #preview > div { height: 100%; min-height: 0; }
+  #controls-panel {
+    height: 100%;
+    min-height: 0;
+    overflow-y: scroll; /* force visible scrollbar */
+    overflow-x: hidden;
+    touch-action: pan-y;
+  }
+  #preview .preview-box { height: 100%; }
 }
 
 /* Mobile: make watch fill width with square ratio */
@@ -77,7 +94,7 @@ img { image-rendering: auto; }
 .mobile-row .thumb { flex: 0 0 calc(33.333% - 8px); height: 120px; scroll-snap-align: start; }
 
 /* Keep controls panel height synced (fallback handled by sticky+max-height) */
-#controls-panel { scrollbar-gutter: stable; }
+#controls-panel { scrollbar-gutter: stable; overflow-y: auto; }
 #controls-panel::-webkit-scrollbar { width: 10px; }
 #controls-panel::-webkit-scrollbar-thumb { background: rgb(203 213 225); border-radius: 8px; }
 #controls-panel::-webkit-scrollbar-track { background: rgb(248 250 252); }
