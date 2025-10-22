@@ -61,16 +61,16 @@
       </div>
     </div>
 
-    <main class="w-full max-w-none p-4 grid gap-6">
+    <main class="w-full max-w-none p-4 grid gap-6 md:grid-cols-[40%_60%]">
       <!-- Mobile Config (Scrollable) -->
-      <section id="mobile-config" class="md:hidden order-3">
+      <section id="mobile-config" class="md:hidden order-2">
         <div id="mobile-parts-container" class="bg-white rounded-2xl border border-slate-200/70 p-4 shadow-sm ring-1 ring-white/60 space-y-6">
           <!-- Part groups will be rendered dynamically here -->
         </div>
       </section>
 
       <!-- Preview (Sticky for Desktop, Bottom for Mobile) -->
-      <section id="preview" class="order-1 md:order-1">
+      <section id="preview" class="order-1 md:order-2">
         <div class="bg-brandBg rounded-2xl p-6 lg:p-8 shadow-sm ring-1 ring-white/60 md:sticky md:top-4">
           <div class="relative w-full aspect-square md:aspect-[3/4] select-none preview-box" id="preview-box">
             <div id="zoom-inner" class="w-full h-full relative">
@@ -87,7 +87,7 @@
       </section>
 
       <!-- Desktop Controls -->
-      <section id="controls" class="hidden md:block md:order-2">
+      <section id="controls" class="hidden md:block md:order-1">
         <div class="bg-white rounded-2xl border border-slate-200/70 p-4 shadow-sm ring-1 ring-white/60 space-y-6 overflow-auto" id="controls-panel">
           <p class="text-xs text-brandMuted">Click to select - Double-click for large preview</p>
           <!-- Grids will be generated dynamically from part_groups -->
