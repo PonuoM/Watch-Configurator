@@ -22,6 +22,7 @@
       </div>
       <nav class="sidebar-nav">
         <button id="menu-add-sku" class="nav-button active">จัดการ SKU</button>
+        <button id="menu-part-groups" class="nav-button">จัดการ Part Groups</button>
       </nav>
     </aside>
 
@@ -57,6 +58,33 @@
               </thead>
               <tbody>
                 <!-- SKU rows will be inserted here -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Part Groups Management Panel (hidden by default) -->
+        <div id="panel-part-groups" class="content-panel hidden">
+          <div class="panel-header">
+            <h2>จัดการ Part Groups</h2>
+            <div class="panel-actions">
+              <button id="btn-add-part-group" class="btn btn-primary"><span>＋</span> เพิ่ม Part Group</button>
+            </div>
+          </div>
+          <div class="table-container">
+            <table id="part-groups-table" class="data-table">
+              <thead>
+                <tr>
+                  <th>Key</th>
+                  <th>ชื่อไทย</th>
+                  <th>ชื่ออังกฤษ</th>
+                  <th>Sort Order</th>
+                  <th>Layer (ลำดับชั้น)</th>
+                  <th>การดำเนินการ</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- Part group rows will be inserted here -->
               </tbody>
             </table>
           </div>
@@ -166,6 +194,100 @@
             </div>
         </div>
 
+      </div>
+    </div>
+
+    <!-- Edit SKU Name Modal -->
+    <div id="edit-sku-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+      <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-xl font-semibold">แก้ไขชื่อ SKU</h3>
+          <button id="edit-sku-close" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+        </div>
+        <div class="space-y-4">
+          <div>
+            <label for="edit-sku-name-input" class="block text-sm font-medium text-gray-700 mb-1">ชื่อ SKU *</label>
+            <input type="text" id="edit-sku-name-input" class="w-full border border-gray-300 rounded-md p-2" placeholder="เช่น: Rolex Submariner">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">รหัส SKU</label>
+            <input type="text" id="edit-sku-id-display" class="w-full border border-gray-300 rounded-md p-2 bg-gray-100" readonly>
+          </div>
+        </div>
+        <div class="flex justify-end gap-3 mt-6">
+          <button id="edit-sku-cancel" class="btn btn-secondary">ยกเลิก</button>
+          <button id="edit-sku-save" class="btn btn-primary">บันทึก</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add/Edit Part Group Modal -->
+    <div id="part-group-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+      <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-xl font-semibold" id="part-group-modal-title">เพิ่ม Part Group ใหม่</h3>
+          <button id="part-group-modal-close" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+        </div>
+        <div class="space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label for="pg-name-en" class="block text-sm font-medium text-gray-700 mb-1">ชื่อภาษาอังกฤษ *</label>
+              <input type="text" id="pg-name-en" class="w-full border border-gray-300 rounded-md p-2" placeholder="e.g., Crown">
+            </div>
+            <div>
+              <label for="pg-name-th" class="block text-sm font-medium text-gray-700 mb-1">ชื่อภาษาไทย *</label>
+              <input type="text" id="pg-name-th" class="w-full border border-gray-300 rounded-md p-2" placeholder="เช่น: มงกุฎ">
+            </div>
+          </div>
+          <div>
+            <label for="pg-key" class="block text-sm font-medium text-gray-700 mb-1">Key (ID) *</label>
+            <input type="text" id="pg-key" class="w-full border border-gray-300 rounded-md p-2 bg-gray-100" placeholder="จะสร้างอัตโนมัติจากชื่ออังกฤษ" readonly>
+            <p class="text-xs text-gray-500 mt-1">Key จะถูกสร้างอัตโนมัติจากชื่ออังกฤษ (ตัวพิมพ์เล็ก ไม่มีช่องว่าง)</p>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label for="pg-sort-order" class="block text-sm font-medium text-gray-700 mb-1">Sort Order (ลำดับในเมนู) *</label>
+              <input type="number" id="pg-sort-order" class="w-full border border-gray-300 rounded-md p-2" min="1" value="1">
+              <p class="text-xs text-gray-500 mt-1">ตัวเลขน้อยจะแสดงก่อน</p>
+            </div>
+            <div>
+              <label for="pg-z-index" class="block text-sm font-medium text-gray-700 mb-1">Layer (ลำดับชั้น) *</label>
+              <input type="number" id="pg-z-index" class="w-full border border-gray-300 rounded-md p-2" min="1" value="1">
+              <p class="text-xs text-gray-500 mt-1">ตัวเลขมากจะอยู่ด้านบน</p>
+            </div>
+          </div>
+        </div>
+        <div class="flex justify-end gap-3 mt-6">
+          <button id="part-group-cancel" class="btn btn-secondary">ยกเลิก</button>
+          <button id="part-group-save" class="btn btn-primary">บันทึก</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit Pattern Name Modal -->
+    <div id="edit-pattern-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+      <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-xl font-semibold">แก้ไขชื่อลาย</h3>
+          <button id="edit-pattern-close" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+        </div>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">กลุ่ม</label>
+            <input type="text" id="edit-pattern-group-display" class="w-full border border-gray-300 rounded-md p-2 bg-gray-100" readonly>
+          </div>
+          <div>
+            <label for="edit-pattern-name-input" class="block text-sm font-medium text-gray-700 mb-1">ชื่อลาย *</label>
+            <input type="text" id="edit-pattern-name-input" class="w-full border border-gray-300 rounded-md p-2" placeholder="เช่น: Black, Silver">
+          </div>
+          <div class="border rounded-md p-3 bg-gray-50">
+            <img id="edit-pattern-preview" src="" alt="Preview" class="w-24 h-24 object-contain mx-auto">
+          </div>
+        </div>
+        <div class="flex justify-end gap-3 mt-6">
+          <button id="edit-pattern-cancel" class="btn btn-secondary">ยกเลิก</button>
+          <button id="edit-pattern-save" class="btn btn-primary">บันทึก</button>
+        </div>
       </div>
     </div>
 

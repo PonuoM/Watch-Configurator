@@ -53,11 +53,17 @@ PARTS = CATALOG[currentSKU] || PARTS;
 let MASTER_GROUP_LIST = []; // Will be loaded from Supabase
 
 async function loadPartGroups(client) {
-  const { data, error } = await client.from('part_groups').select('key, name_th, name_en, sort_order').order('sort_order');
+  const { data, error } = await client.from('part_groups').select('key, name_th, name_en, sort_order, z_index').order('sort_order');
   if (error) {
     console.error('Error loading part groups:', error);
     // Fallback to a hardcoded list if the table doesn't exist or fails to load
-    MASTER_GROUP_LIST = ['bracelet','outer','inner','dial','hands','second'].map(k => ({ key: k, name_en: k, name_th: k, sort_order: 0 }));
+    MASTER_GROUP_LIST = ['bracelet','outer','inner','dial','hands','second'].map((k, idx) => ({ 
+      key: k, 
+      name_en: k, 
+      name_th: k, 
+      sort_order: idx + 1,
+      z_index: idx + 1 
+    }));
   } else {
     MASTER_GROUP_LIST = data;
   }
@@ -344,33 +350,33 @@ function renderGrid(gridId, items, groupKey, state) {
 }
 
 // Render a compact horizontal row (mobile) - ACCEPTS ELEMENT
-function renderMobileRow(rowElement, items, groupKey, state) {
-  if (!rowElement) return;
-  rowElement.innerHTML = "";
-  // Defensive: ensure items is an array before iterating (can be undefined when SKU lacks a group)
-  const list = Array.isArray(items) ? items : [];
-  list.forEach((it, idx) => {
-    const card = document.createElement("button");
-    card.type = "button";
-    card.className = "thumb";
-    const img = document.createElement("img");
-    img.src = it.dataUrl ? it.dataUrl : IMG_BASE + it.file;
-    img.alt = it.label;
-    img.draggable = false;
-    const label = document.createElement("div");
-    label.className = "label";
-    label.textContent = it.label;
-    if (state[groupKey] === idx) card.classList.add("selected");
-    card.appendChild(img);
-    card.appendChild(label);
-    rowElement.appendChild(card);
-    card.addEventListener("click", () => {
+function renderMobileRow(rowEl, items, groupKey, state) {
+  rowEl.innerHTML = ''; // Clear previous items
+  items.forEach((item, idx) => {
+    const thumb = document.createElement('div');
+    thumb.className = 'mobile-thumb';
+    if (idx === state[groupKey]) {
+      thumb.classList.add('selected');
+    }
+    const imgSrc = item.dataUrl ? item.dataUrl : IMG_BASE + item.file;
+    thumb.innerHTML = `<img src="${imgSrc}" alt="${item.label}" loading="lazy">`;
+    thumb.addEventListener('click', () => {
       state[groupKey] = idx;
       applySelections(state);
-      // Re-render only this row to update selection
-      renderMobileRow(rowElement, items, groupKey, state);
+      
+      // Update title with new selection name
+      const titleEl = document.getElementById(`mobile-group-title-${groupKey}`);
+      if (titleEl) {
+        const nameSpan = titleEl.querySelector('.selected-item-name');
+        if (nameSpan) {
+          nameSpan.textContent = item.label;
+        }
+      }
+      
+      // Re-render this row to update selection visual
+      renderMobileRow(rowEl, items, groupKey, state);
     });
-    card.addEventListener("dblclick", () => openModal(groupKey, idx));
+    rowEl.appendChild(thumb);
   });
 }
 
@@ -389,10 +395,17 @@ function renderMobilePartGroups(state) {
   }
 
   availableGroups.forEach(groupInfo => {
+    const items = PARTS[groupInfo.key] || [];
+    const currentSelectionIdx = state[groupInfo.key] || 0;
+    const selectedItem = items[currentSelectionIdx];
+
     // Group Title
     const title = document.createElement('h3');
-    title.className = 'text-base font-semibold';
-    title.textContent = `${groupInfo.name_th} / ${groupInfo.name_en}`;
+    title.id = `mobile-group-title-${groupInfo.key}`;
+    title.innerHTML = `
+      ${groupInfo.name_th} / ${groupInfo.name_en}
+      <span class="selected-item-name">${selectedItem ? selectedItem.label : ''}</span>
+    `;
     container.appendChild(title);
 
     // Horizontally scrollable row for thumbnails
@@ -401,7 +414,6 @@ function renderMobilePartGroups(state) {
     container.appendChild(row);
 
     // Render thumbnails into the row
-    const items = PARTS[groupInfo.key];
     renderMobileRow(row, items, groupInfo.key, state);
   });
 }
@@ -563,6 +575,12 @@ function createDynamicLayers() {
     img.alt = groupInfo.name_en || groupInfo.key;
     img.className = 'absolute inset-0 w-full h-full object-contain';
     img.style.visibility = 'hidden'; // initially hidden
+    
+    // Apply z-index from database to control layer stacking
+    if (groupInfo.z_index !== undefined && groupInfo.z_index !== null) {
+      img.style.zIndex = groupInfo.z_index;
+    }
+    
     zoomInner.appendChild(img);
   });
 
@@ -1276,7 +1294,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     tr.innerHTML = `<td>${key}</td>` +
       `<td>${(parts && parts.__name) ? parts.__name : ''}</td>` +
       `<td>${Object.keys(parts || {}).filter(k=>k !== '__name').length}</td>` +
-      `<td><div class="flex items-center gap-4">` +
+      `<td><div class="flex items-center gap-2">` +
+      `<button class="edit-sku btn btn-secondary" data-sku="${key}">✏️ แก้ไข</button>` +
       `<button class="pm-open btn btn-secondary" data-sku="${key}">จัดการลาย</button>` +
       `<button class="del-sku btn-text-danger" data-sku="${key}">ลบ SKU</button>` +
       `</div></td>`;
@@ -1291,6 +1310,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       skuTableBody.appendChild(row);
     });
     // wire actions
+    Array.from(document.querySelectorAll('.edit-sku')).forEach(b => {
+      b.addEventListener('click', (e) => {
+        const sku = b.dataset && b.dataset.sku;
+        openEditSKUModal(sku);
+      });
+    });
     Array.from(document.querySelectorAll('.pm-open')).forEach(b => {
       b.addEventListener('click', (e) => {
         const sku = b.dataset && b.dataset.sku;
@@ -1335,6 +1360,651 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // part modal helpers
   let modalContextSku = null;
+  // Edit SKU Name Modal Functions
+  let editSkuContext = null;
+  const editSkuModal = document.getElementById('edit-sku-modal');
+  const editSkuNameInput = document.getElementById('edit-sku-name-input');
+  const editSkuIdDisplay = document.getElementById('edit-sku-id-display');
+  const editSkuClose = document.getElementById('edit-sku-close');
+  const editSkuCancel = document.getElementById('edit-sku-cancel');
+  const editSkuSave = document.getElementById('edit-sku-save');
+
+  function openEditSKUModal(skuId) {
+    if (!skuId || !CATALOG[skuId]) return;
+    editSkuContext = skuId;
+    editSkuNameInput.value = CATALOG[skuId].__name || '';
+    editSkuIdDisplay.value = skuId;
+    if (editSkuModal) editSkuModal.classList.remove('hidden');
+  }
+
+  function closeEditSKUModal() {
+    editSkuContext = null;
+    if (editSkuModal) editSkuModal.classList.add('hidden');
+    if (editSkuNameInput) editSkuNameInput.value = '';
+    if (editSkuIdDisplay) editSkuIdDisplay.value = '';
+  }
+
+  async function saveEditSKU() {
+    if (!editSkuContext) return;
+    const newName = editSkuNameInput ? editSkuNameInput.value.trim() : '';
+    if (!newName) {
+      showToast('กรุณากรอกชื่อ SKU', 'error');
+      return;
+    }
+
+    const supa = getSupabaseClient();
+    if (!supa) {
+      showToast('ไม่สามารถเชื่อมต่อ Supabase', 'error');
+      return;
+    }
+
+    try {
+      // Update in Supabase
+      const { error } = await supa
+        .from('skus')
+        .update({ name: newName })
+        .eq('id', editSkuContext);
+
+      if (error) throw error;
+
+      // Update local catalog
+      if (CATALOG[editSkuContext]) {
+        CATALOG[editSkuContext].__name = newName;
+      }
+      localStorage.setItem('watchCatalog', JSON.stringify(CATALOG));
+
+      showToast('แก้ไขชื่อ SKU สำเร็จ', 'success');
+      closeEditSKUModal();
+      refreshSkuTable();
+      
+      // Update SKU selector if current SKU
+      if (editSkuContext === currentSKU) {
+        populateSkuSelector();
+      }
+    } catch (e) {
+      console.error(e);
+      showToast('เกิดข้อผิดพลาด: ' + (e && e.message ? e.message : String(e)), 'error');
+    }
+  }
+
+  if (editSkuClose) editSkuClose.addEventListener('click', closeEditSKUModal);
+  if (editSkuCancel) editSkuCancel.addEventListener('click', closeEditSKUModal);
+  if (editSkuSave) editSkuSave.addEventListener('click', saveEditSKU);
+
+  // Edit Pattern Name Modal Functions
+  let editPatternContext = null;
+  const editPatternModal = document.getElementById('edit-pattern-modal');
+  const editPatternNameInput = document.getElementById('edit-pattern-name-input');
+  const editPatternGroupDisplay = document.getElementById('edit-pattern-group-display');
+  const editPatternPreview = document.getElementById('edit-pattern-preview');
+  const editPatternClose = document.getElementById('edit-pattern-close');
+  const editPatternCancel = document.getElementById('edit-pattern-cancel');
+  const editPatternSave = document.getElementById('edit-pattern-save');
+
+  function openEditPatternModal(skuId, groupKey, itemIdx, itemData) {
+    if (!skuId || !groupKey || itemIdx === undefined || !itemData) return;
+    editPatternContext = { skuId, groupKey, itemIdx, itemData };
+    
+    const groupInfo = MASTER_GROUP_LIST.find(g => g.key === groupKey);
+    const groupName = groupInfo ? `${groupInfo.name_th} (${groupInfo.name_en})` : groupKey;
+    
+    editPatternNameInput.value = itemData.label || '';
+    editPatternGroupDisplay.value = groupName;
+    editPatternPreview.src = itemData.dataUrl || (itemData.file ? (IMG_BASE + itemData.file) : '');
+    
+    if (editPatternModal) editPatternModal.classList.remove('hidden');
+  }
+
+  function closeEditPatternModal() {
+    editPatternContext = null;
+    if (editPatternModal) editPatternModal.classList.add('hidden');
+    if (editPatternNameInput) editPatternNameInput.value = '';
+    if (editPatternGroupDisplay) editPatternGroupDisplay.value = '';
+    if (editPatternPreview) editPatternPreview.src = '';
+  }
+
+  async function saveEditPattern() {
+    if (!editPatternContext) return;
+    const { skuId, groupKey, itemIdx, itemData } = editPatternContext;
+    const newLabel = editPatternNameInput ? editPatternNameInput.value.trim() : '';
+    
+    if (!newLabel) {
+      showToast('กรุณากรอกชื่อลาย', 'error');
+      return;
+    }
+
+    const supa = getSupabaseClient();
+    if (!supa) {
+      showToast('ไม่สามารถเชื่อมต่อ Supabase', 'error');
+      return;
+    }
+
+    try {
+      // Find the asset in Supabase by matching URL
+      const { data: assets, error: fetchError } = await supa
+        .from('assets')
+        .select('id,url')
+        .eq('sku_id', skuId)
+        .eq('group_key', groupKey);
+
+      if (fetchError) throw fetchError;
+
+      // Find the matching asset by URL
+      const normalizedUrl = normalizeUrl(itemData.dataUrl || '');
+      const matchingAsset = (assets || []).find(a => normalizeUrl(a.url || '') === normalizedUrl);
+
+      if (!matchingAsset) {
+        showToast('ไม่พบข้อมูลลายนี้ในฐานข้อมูล', 'error');
+        return;
+      }
+
+      // Update in Supabase
+      const { error: updateError } = await supa
+        .from('assets')
+        .update({ label: newLabel })
+        .eq('id', matchingAsset.id);
+
+      if (updateError) throw updateError;
+
+      // Update local catalog
+      if (CATALOG[skuId] && CATALOG[skuId][groupKey] && CATALOG[skuId][groupKey][itemIdx]) {
+        CATALOG[skuId][groupKey][itemIdx].label = newLabel;
+      }
+      localStorage.setItem('watchCatalog', JSON.stringify(CATALOG));
+
+      showToast('แก้ไขชื่อลายสำเร็จ', 'success');
+      closeEditPatternModal();
+      renderModalThumbs();
+      
+      // Update preview if this is the current SKU
+      if (skuId === currentSKU) {
+        PARTS = CATALOG[currentSKU] || {};
+        renderGrid('grid-' + groupKey, PARTS[groupKey] || [], groupKey, state);
+        applySelections(state);
+      }
+    } catch (e) {
+      console.error(e);
+      showToast('เกิดข้อผิดพลาด: ' + (e && e.message ? e.message : String(e)), 'error');
+    }
+  }
+
+  if (editPatternClose) editPatternClose.addEventListener('click', closeEditPatternModal);
+  if (editPatternCancel) editPatternCancel.addEventListener('click', closeEditPatternModal);
+  if (editPatternSave) editPatternSave.addEventListener('click', saveEditPattern);
+
+  // ===== PART GROUPS MANAGEMENT =====
+  const menuPartGroups = document.getElementById('menu-part-groups');
+  const panelPartGroups = document.getElementById('panel-part-groups');
+  const partGroupsTable = document.getElementById('part-groups-table');
+  const partGroupsTableBody = partGroupsTable ? partGroupsTable.querySelector('tbody') : null;
+  const btnAddPartGroup = document.getElementById('btn-add-part-group');
+  
+  const partGroupModal = document.getElementById('part-group-modal');
+  const partGroupModalTitle = document.getElementById('part-group-modal-title');
+  const partGroupModalClose = document.getElementById('part-group-modal-close');
+  const partGroupCancel = document.getElementById('part-group-cancel');
+  const partGroupSave = document.getElementById('part-group-save');
+  const pgNameEn = document.getElementById('pg-name-en');
+  const pgNameTh = document.getElementById('pg-name-th');
+  const pgKey = document.getElementById('pg-key');
+  const pgSortOrder = document.getElementById('pg-sort-order');
+  const pgZIndex = document.getElementById('pg-z-index');
+  
+  let editingPartGroupKey = null; // null = adding new, otherwise editing existing
+
+  // Auto-generate key from English name
+  if (pgNameEn) {
+    pgNameEn.addEventListener('input', () => {
+      if (!editingPartGroupKey && pgKey) {
+        pgKey.value = pgNameEn.value.toLowerCase().replace(/[^a-z0-9]/g, '');
+      }
+    });
+  }
+
+  // Menu switching
+  if (menuPartGroups) {
+    menuPartGroups.addEventListener('click', () => {
+      // Hide all panels
+      if (panelSkuList) panelSkuList.classList.add('hidden');
+      if (panelSku) panelSku.classList.add('hidden');
+      if (panelPartGroups) panelPartGroups.classList.remove('hidden');
+      
+      // Update active menu
+      document.querySelectorAll('.nav-button').forEach(btn => btn.classList.remove('active'));
+      menuPartGroups.classList.add('active');
+      
+      // Update header title
+      const headerTitle = document.querySelector('.header-title h1');
+      if (headerTitle) headerTitle.textContent = 'จัดการ Part Groups';
+      
+      // Refresh table
+      refreshPartGroupsTable();
+    });
+  }
+
+  async function refreshPartGroupsTable() {
+    if (!partGroupsTableBody) return;
+    
+    partGroupsTableBody.innerHTML = '<tr><td colspan="6" class="text-center">กำลังโหลด...</td></tr>';
+    
+    const supa = getSupabaseClient();
+    if (!supa) {
+      partGroupsTableBody.innerHTML = '<tr><td colspan="6" class="text-center text-red-600">ไม่สามารถเชื่อมต่อ Supabase</td></tr>';
+      return;
+    }
+    
+    try {
+      const { data, error } = await supa
+        .from('part_groups')
+        .select('*')
+        .order('z_index', { ascending: true }); // เรียงตาม Layer จากล่างไปบน
+      
+      if (error) throw error;
+      
+      if (!data || data.length === 0) {
+        partGroupsTableBody.innerHTML = '<tr><td colspan="6" class="text-center">ไม่มีข้อมูล</td></tr>';
+        return;
+      }
+      
+      partGroupsTableBody.innerHTML = '';
+      data.forEach((pg, index) => {
+        const tr = document.createElement('tr');
+        tr.draggable = true;
+        tr.dataset.key = pg.key;
+        tr.dataset.zIndex = pg.z_index;
+        tr.style.cursor = 'move';
+        
+        tr.innerHTML = `
+          <td>
+            <div class="flex items-center gap-2">
+              <span class="text-gray-400" style="cursor: move;">⋮⋮</span>
+              <code class="bg-gray-100 px-2 py-1 rounded">${pg.key}</code>
+            </div>
+          </td>
+          <td>${pg.name_th || '-'}</td>
+          <td>${pg.name_en || '-'}</td>
+          <td class="text-center">${pg.sort_order || '-'}</td>
+          <td class="text-center font-bold">${pg.z_index || '-'}</td>
+          <td>
+            <div class="flex items-center gap-2">
+              <button class="edit-part-group btn btn-secondary text-sm" data-key="${pg.key}">✏️ แก้ไข</button>
+              <button class="delete-part-group btn-text-danger text-sm" data-key="${pg.key}">ลบ</button>
+            </div>
+          </td>
+        `;
+        
+        // Add drag event listeners
+        tr.addEventListener('dragstart', handleDragStart);
+        tr.addEventListener('dragover', handleDragOver);
+        tr.addEventListener('drop', handleDrop);
+        tr.addEventListener('dragend', handleDragEnd);
+        tr.addEventListener('dragenter', handleDragEnter);
+        tr.addEventListener('dragleave', handleDragLeave);
+        
+        partGroupsTableBody.appendChild(tr);
+      });
+      
+      // Wire up edit buttons
+      document.querySelectorAll('.edit-part-group').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const key = btn.dataset.key;
+          await openEditPartGroupModal(key);
+        });
+      });
+      
+      // Wire up delete buttons
+      document.querySelectorAll('.delete-part-group').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const key = btn.dataset.key;
+          await deletePartGroup(key);
+        });
+      });
+      
+    } catch (e) {
+      console.error(e);
+      partGroupsTableBody.innerHTML = `<tr><td colspan="6" class="text-center text-red-600">เกิดข้อผิดพลาด: ${e.message}</td></tr>`;
+    }
+  }
+
+  async function openAddPartGroupModal() {
+    editingPartGroupKey = null;
+    if (partGroupModalTitle) partGroupModalTitle.textContent = 'เพิ่ม Part Group ใหม่';
+    if (pgNameEn) pgNameEn.value = '';
+    if (pgNameTh) pgNameTh.value = '';
+    if (pgKey) { pgKey.value = ''; pgKey.readOnly = false; }
+    
+    // Auto-calculate Sort Order and Layer (Z-Index) to be on top
+    const supa = getSupabaseClient();
+    if (supa) {
+      try {
+        const { data, error } = await supa
+          .from('part_groups')
+          .select('sort_order, z_index')
+          .order('sort_order', { ascending: false })
+          .limit(1);
+        
+        if (!error && data && data.length > 0) {
+          const maxSortOrder = data[0].sort_order || 0;
+          
+          // Get max z_index separately
+          const { data: zData } = await supa
+            .from('part_groups')
+            .select('z_index')
+            .order('z_index', { ascending: false })
+            .limit(1);
+          
+          const maxZIndex = (zData && zData[0]) ? zData[0].z_index || 0 : 0;
+          
+          if (pgSortOrder) pgSortOrder.value = maxSortOrder + 1;
+          if (pgZIndex) pgZIndex.value = maxZIndex + 1;
+        } else {
+          // Default if no existing part groups
+          if (pgSortOrder) pgSortOrder.value = '1';
+          if (pgZIndex) pgZIndex.value = '1';
+        }
+      } catch (e) {
+        console.error('Error getting max values:', e);
+        if (pgSortOrder) pgSortOrder.value = '1';
+        if (pgZIndex) pgZIndex.value = '1';
+      }
+    } else {
+      // Fallback if no Supabase connection
+      if (pgSortOrder) pgSortOrder.value = '1';
+      if (pgZIndex) pgZIndex.value = '1';
+    }
+    
+    if (partGroupModal) partGroupModal.classList.remove('hidden');
+  }
+
+  async function openEditPartGroupModal(key) {
+    editingPartGroupKey = key;
+    if (partGroupModalTitle) partGroupModalTitle.textContent = 'แก้ไข Part Group';
+    
+    const supa = getSupabaseClient();
+    if (!supa) {
+      showToast('ไม่สามารถเชื่อมต่อ Supabase', 'error');
+      return;
+    }
+    
+    try {
+      const { data, error } = await supa
+        .from('part_groups')
+        .select('*')
+        .eq('key', key)
+        .single();
+      
+      if (error) throw error;
+      
+      if (pgNameEn) pgNameEn.value = data.name_en || '';
+      if (pgNameTh) pgNameTh.value = data.name_th || '';
+      if (pgKey) { pgKey.value = data.key || ''; pgKey.readOnly = true; }
+      if (pgSortOrder) pgSortOrder.value = data.sort_order || 1;
+      if (pgZIndex) pgZIndex.value = data.z_index || 1;
+      if (partGroupModal) partGroupModal.classList.remove('hidden');
+      
+    } catch (e) {
+      console.error(e);
+      showToast('ไม่สามารถโหลดข้อมูล: ' + e.message, 'error');
+    }
+  }
+
+  function closePartGroupModal() {
+    editingPartGroupKey = null;
+    if (partGroupModal) partGroupModal.classList.add('hidden');
+    if (pgNameEn) pgNameEn.value = '';
+    if (pgNameTh) pgNameTh.value = '';
+    if (pgKey) pgKey.value = '';
+    if (pgSortOrder) pgSortOrder.value = '1';
+    if (pgZIndex) pgZIndex.value = '1';
+  }
+
+  async function savePartGroup() {
+    const nameEn = pgNameEn ? pgNameEn.value.trim() : '';
+    const nameTh = pgNameTh ? pgNameTh.value.trim() : '';
+    const key = pgKey ? pgKey.value.trim() : '';
+    const sortOrder = pgSortOrder ? parseInt(pgSortOrder.value) : 1;
+    const zIndex = pgZIndex ? parseInt(pgZIndex.value) : 1;
+    
+    if (!nameEn || !nameTh || !key) {
+      showToast('กรุณากรอกข้อมูลให้ครบถ้วน', 'error');
+      return;
+    }
+    
+    const supa = getSupabaseClient();
+    if (!supa) {
+      showToast('ไม่สามารถเชื่อมต่อ Supabase', 'error');
+      return;
+    }
+    
+    try {
+      const data = {
+        key,
+        name_en: nameEn,
+        name_th: nameTh,
+        sort_order: sortOrder,
+        z_index: zIndex
+      };
+      
+      if (editingPartGroupKey) {
+        // Update existing
+        const { error } = await supa
+          .from('part_groups')
+          .update({
+            name_en: nameEn,
+            name_th: nameTh,
+            sort_order: sortOrder,
+            z_index: zIndex
+          })
+          .eq('key', editingPartGroupKey);
+        
+        if (error) throw error;
+        showToast('แก้ไข Part Group สำเร็จ', 'success');
+      } else {
+        // Insert new
+        const { error } = await supa
+          .from('part_groups')
+          .insert([data]);
+        
+        if (error) throw error;
+        showToast('เพิ่ม Part Group สำเร็จ', 'success');
+      }
+      
+      closePartGroupModal();
+      
+      // Reload part groups and refresh UI
+      await loadPartGroups(supa);
+      refreshPartGroupsTable();
+      
+      // Clear localStorage to force reload on main page
+      localStorage.removeItem('watchCatalog');
+      
+    } catch (e) {
+      console.error(e);
+      showToast('เกิดข้อผิดพลาด: ' + (e.message || String(e)), 'error');
+    }
+  }
+
+  async function deletePartGroup(key) {
+    if (!confirm(`ต้องการลบ Part Group "${key}" ใช่หรือไม่?\n\n⚠️ คำเตือน: การลบจะทำให้ข้อมูลทั้งหมดที่เกี่ยวข้องหายไป`)) {
+      return;
+    }
+    
+    const supa = getSupabaseClient();
+    if (!supa) {
+      showToast('ไม่สามารถเชื่อมต่อ Supabase', 'error');
+      return;
+    }
+    
+    try {
+      // Check if there are assets using this group
+      const { data: assets, error: assetsError } = await supa
+        .from('assets')
+        .select('id')
+        .eq('group_key', key)
+        .limit(1);
+      
+      if (assetsError) throw assetsError;
+      
+      if (assets && assets.length > 0) {
+        if (!confirm(`พบข้อมูล ${assets.length} รายการที่ใช้ Part Group นี้\n\nต้องการลบทั้งหมดใช่หรือไม่?`)) {
+          return;
+        }
+        
+        // Delete all assets with this group_key
+        const { error: deleteAssetsError } = await supa
+          .from('assets')
+          .delete()
+          .eq('group_key', key);
+        
+        if (deleteAssetsError) throw deleteAssetsError;
+      }
+      
+      // Delete the part group
+      const { error } = await supa
+        .from('part_groups')
+        .delete()
+        .eq('key', key);
+      
+      if (error) throw error;
+      
+      showToast('ลบ Part Group สำเร็จ', 'success');
+      
+      // Reload part groups and refresh UI
+      await loadPartGroups(supa);
+      refreshPartGroupsTable();
+      
+      // Clear localStorage to force reload on main page
+      localStorage.removeItem('watchCatalog');
+      
+    } catch (e) {
+      console.error(e);
+      showToast('เกิดข้อผิดพลาด: ' + (e.message || String(e)), 'error');
+    }
+  }
+
+  // Drag and Drop functionality for reordering layers
+  let draggedRow = null;
+
+  function handleDragStart(e) {
+    draggedRow = this;
+    this.style.opacity = '0.4';
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', this.innerHTML);
+  }
+
+  function handleDragOver(e) {
+    if (e.preventDefault) {
+      e.preventDefault();
+    }
+    e.dataTransfer.dropEffect = 'move';
+    return false;
+  }
+
+  function handleDragEnter(e) {
+    if (this !== draggedRow) {
+      this.style.backgroundColor = '#e3f2fd';
+    }
+  }
+
+  function handleDragLeave(e) {
+    this.style.backgroundColor = '';
+  }
+
+  async function handleDrop(e) {
+    if (e.stopPropagation) {
+      e.stopPropagation();
+    }
+    
+    if (draggedRow !== this) {
+      // Get all rows
+      const rows = Array.from(partGroupsTableBody.querySelectorAll('tr'));
+      const draggedIndex = rows.indexOf(draggedRow);
+      const droppedIndex = rows.indexOf(this);
+      
+      // Reorder in DOM
+      if (draggedIndex < droppedIndex) {
+        this.parentNode.insertBefore(draggedRow, this.nextSibling);
+      } else {
+        this.parentNode.insertBefore(draggedRow, this);
+      }
+      
+      // Update z_index values based on new order
+      await updateLayerOrder();
+    }
+    
+    this.style.backgroundColor = '';
+    return false;
+  }
+
+  function handleDragEnd(e) {
+    this.style.opacity = '1';
+    
+    // Remove all background colors
+    const rows = partGroupsTableBody.querySelectorAll('tr');
+    rows.forEach(row => {
+      row.style.backgroundColor = '';
+    });
+  }
+
+  async function updateLayerOrder() {
+    const rows = Array.from(partGroupsTableBody.querySelectorAll('tr'));
+    const supa = getSupabaseClient();
+    
+    if (!supa) {
+      showToast('ไม่สามารถเชื่อมต่อ Supabase', 'error');
+      return;
+    }
+    
+    try {
+      // Update z_index based on position (first row = z_index 1, last row = highest z_index)
+      const updates = rows.map((row, index) => {
+        const key = row.dataset.key;
+        const newZIndex = index + 1; // Start from 1
+        return { key, z_index: newZIndex };
+      });
+      
+      // Update each part group in database
+      for (const update of updates) {
+        const { error } = await supa
+          .from('part_groups')
+          .update({ z_index: update.z_index })
+          .eq('key', update.key);
+        
+        if (error) throw error;
+      }
+      
+      // Update the display immediately without refreshing (to prevent flickering)
+      rows.forEach((row, index) => {
+        const layerCell = row.querySelector('td:nth-child(5)'); // Layer column
+        if (layerCell) {
+          layerCell.textContent = index + 1;
+        }
+        row.dataset.zIndex = index + 1;
+      });
+      
+      showToast('อัปเดตลำดับ Layer สำเร็จ', 'success');
+      
+      // Reload part groups in background (don't refresh table to avoid re-sorting)
+      await loadPartGroups(supa);
+      
+      // Clear localStorage to force reload on main page
+      localStorage.removeItem('watchCatalog');
+      
+    } catch (e) {
+      console.error(e);
+      showToast('เกิดข้อผิดพลาด: ' + (e.message || String(e)), 'error');
+      refreshPartGroupsTable(); // Refresh to restore original order only on error
+    }
+  }
+
+  // Event listeners
+  if (btnAddPartGroup) btnAddPartGroup.addEventListener('click', async () => {
+    await openAddPartGroupModal();
+  });
+  if (partGroupModalClose) partGroupModalClose.addEventListener('click', closePartGroupModal);
+  if (partGroupCancel) partGroupCancel.addEventListener('click', closePartGroupModal);
+  if (partGroupSave) partGroupSave.addEventListener('click', savePartGroup);
+
   function openPartModalForSKU(sku) {
     modalContextSku = sku;
     pmSkuKey.textContent = sku;
@@ -1372,7 +2042,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     items.forEach((it, idx) => {
       const wrap = document.createElement('div'); wrap.className = 'relative';
       const img = document.createElement('img'); img.src = it.dataUrl ? it.dataUrl : (it.file ? (IMG_BASE + it.file) : ''); img.className = 'w-full h-36 object-contain';
-      const del = document.createElement('button'); del.textContent = 'ลบ'; del.className = 'absolute top-1 right-1 bg-red-600 text-white px-2 py-1 text-xs';
+      
+      // Edit button
+      const edit = document.createElement('button'); 
+      edit.textContent = '✏️'; 
+      edit.className = 'absolute top-1 left-1 bg-blue-600 text-white px-2 py-1 text-xs rounded hover:bg-blue-700';
+      edit.addEventListener('click', () => {
+        openEditPatternModal(modalContextSku, g, idx, it);
+      });
+      
+      // Delete button
+      const del = document.createElement('button'); del.textContent = 'ลบ'; del.className = 'absolute top-1 right-1 bg-red-600 text-white px-2 py-1 text-xs rounded hover:bg-red-700';
       del.addEventListener('click', async () => {
         if (!confirm('ต้องการลบรูปนี้ใช่หรือไม่?')) return;
         
@@ -1491,7 +2171,14 @@ document.addEventListener("DOMContentLoaded", async () => {
           del.textContent = 'ลบ';
         }
       });
-      wrap.appendChild(img); wrap.appendChild(del); pmThumbs.appendChild(wrap);
+      
+      // Add label text below the image
+      const labelDiv = document.createElement('div');
+      labelDiv.className = 'text-center text-sm font-medium text-gray-700 mt-2 px-1 truncate';
+      labelDiv.textContent = it.label || 'ไม่มีชื่อ';
+      labelDiv.title = it.label || 'ไม่มีชื่อ'; // Show full name on hover
+      
+      wrap.appendChild(img); wrap.appendChild(edit); wrap.appendChild(del); wrap.appendChild(labelDiv); pmThumbs.appendChild(wrap);
     });
   }
   if (pmAddBtn) pmAddBtn.addEventListener('click', async () => {
@@ -1716,6 +2403,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // --- Admin page: sidebar and panels (if on admin.html) ---
   const menuAddSku = document.getElementById('menu-add-sku');
   const menuAddPart = document.getElementById('menu-add-part');
+  const panelSkuList = document.getElementById('panel-sku-list');
   const panelSku = document.getElementById('panel-sku');
   const panelPart = document.getElementById('panel-part');
   const adminSelectSku = document.getElementById('admin-select-sku');
@@ -1724,16 +2412,28 @@ document.addEventListener("DOMContentLoaded", async () => {
   const addPartSave = document.getElementById('admin-addpart-save');
 
   function setActiveMenu(button) {
-    [menuAddSku, menuAddPart].forEach(b => { if (b) b.classList.remove('active'); });
+    document.querySelectorAll('.nav-button').forEach(b => b.classList.remove('active'));
     if (button) button.classList.add('active');
   }
   function showPanel(panel) {
+    if (panelSkuList) panelSkuList.classList.add('hidden');
     if (panelSku) panelSku.classList.add('hidden');
     if (panelPart) panelPart.classList.add('hidden');
+    if (panelPartGroups) panelPartGroups.classList.add('hidden');
     if (panel) panel.classList.remove('hidden');
   }
   if (menuAddSku) {
-    menuAddSku.addEventListener('click', () => { setActiveMenu(menuAddSku); showPanel(panelSku); });
+    menuAddSku.addEventListener('click', () => {
+      setActiveMenu(menuAddSku);
+      showPanel(panelSkuList);
+      
+      // Update header title
+      const headerTitle = document.querySelector('.header-title h1');
+      if (headerTitle) headerTitle.textContent = 'จัดการ SKU';
+      
+      // Refresh SKU table
+      refreshSkuTable();
+    });
   }
   if (menuAddPart) {
     menuAddPart.addEventListener('click', () => { setActiveMenu(menuAddPart); showPanel(panelPart); });
