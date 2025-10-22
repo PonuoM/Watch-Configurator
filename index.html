@@ -6,8 +6,12 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;700&display=swap" rel="stylesheet">
     <title>Watch Configurator</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Supabase SDK (optional). Provide keys via supabase.config.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="./supabase.config.js"></script>
     <script>
       tailwind.config = {
         theme: {
@@ -30,35 +34,45 @@
         <div class="flex items-center gap-3">
           <div class="text-[18px] font-semibold tracking-tight">Watch Configurator</div>
         </div>
-        <nav class="hidden md:block space-x-4 text-sm text-brandMuted">
+        <nav class="hidden md:flex items-center gap-3 text-sm text-brandMuted">
           <a href="#preview" class="hover:underline">Preview</a>
           <a href="#controls" class="hover:underline">Customize</a>
+          <div class="flex items-center gap-2">
+            <label for="sku-select" class="text-xs">Base</label>
+            <select id="sku-select" class="border border-slate-300 rounded-md text-slate-700 bg-white px-2 py-1">
+              <option value="default">Default</option>
+            </select>
+          </div>
+          <button id="open-admin" class="px-3 py-1 rounded-md border border-slate-300 bg-white text-slate-700">Admin</button>
         </nav>
+        <!-- Mobile SKU Selector -->
+        <div class="md:hidden">
+          <label for="mobile-sku-select" class="sr-only">Base Model</label>
+          <select id="mobile-sku-select" class="border border-slate-300 rounded-md text-slate-700 bg-white px-2 py-1.5 text-sm"></select>
+        </div>
       </div>
     </header>
+
+    <!-- Loading overlay shown while catalog/images are loading -->
+    <div id="loading-overlay" class="fixed inset-0 z-50 bg-white flex items-center justify-center">
+      <div class="text-center">
+        <div class="loader" aria-hidden="true"></div>
+        <div class="mt-3 text-sm text-slate-700">กำลังโหลดคลัง...</div>
+      </div>
+    </div>
 
     <main class="w-full max-w-none p-4 grid gap-6 md:grid-cols-[40%_60%]">
       <section id="preview" class="order-1 md:order-2">
         <div class="bg-brandBg rounded-2xl p-6 lg:p-8 shadow-sm ring-1 ring-white/60 md:sticky md:top-4">
           <div class="relative w-full aspect-square md:aspect-[3/4] select-none preview-box" id="preview-box">
             <div id="zoom-inner" class="w-full h-full relative">
-              <!-- Bracelet -->
-              <img id="layer-bracelet" alt="bracelet" class="absolute inset-0 w-full h-full object-contain" />
-              <!-- Outer frame / Bezel -->
-              <img id="layer-outer" alt="outer frame" class="absolute inset-0 w-full h-full object-contain" />
-              <!-- Inner frame / Chapter ring -->
-              <img id="layer-inner" alt="inner frame" class="absolute inset-0 w-full h-full object-contain" />
-              <!-- Dial -->
-              <img id="layer-dial" alt="dial" class="absolute inset-0 w-full h-full object-contain" />
-              <!-- Hands (hour/minute) -->
-              <img id="layer-hands" alt="hands" class="absolute inset-0 w-full h-full object-contain" />
-              <!-- Seconds hand -->
-              <img id="layer-second" alt="second hand" class="absolute inset-0 w-full h-full object-contain" />
+              <!-- Layers will be generated dynamically from part_groups -->
             </div>
             <div id="zoom-controls" class="hidden md:flex items-center gap-1 absolute top-2 right-2 z-10">
               <button id="zoom-out" class="px-2 py-1 rounded-md border border-slate-300 bg-white text-slate-700 text-sm">-</button>
               <button id="zoom-reset" class="px-2 py-1 rounded-md border border-slate-300 bg-white text-slate-700 text-[11px]">100%</button>
               <button id="zoom-in" class="px-2 py-1 rounded-md bg-slate-800 text-white text-sm">+</button>
+              <button id="btn-download" class="ml-2 px-2 py-1 rounded-md bg-emerald-600 text-white text-sm">Download PNG</button>
             </div>
           </div>
         </div>
@@ -68,23 +82,7 @@
         <div class="bg-white rounded-2xl border border-slate-200/70 p-4 shadow-sm ring-1 ring-white/60 space-y-6 overflow-auto" id="controls-panel">
           <p class="text-xs text-brandMuted">Click to select - Double-click for large preview</p>
 
-          <h3 class="part-title">Dial</h3>
-          <div id="grid-dial" class="part-grid"></div>
-
-          <h3 class="part-title">Hands (Hour/Minute)</h3>
-          <div id="grid-hands" class="part-grid"></div>
-
-          <h3 class="part-title">Second Hand</h3>
-          <div id="grid-second" class="part-grid"></div>
-
-          <h3 class="part-title">Outer Bezel</h3>
-          <div id="grid-outer" class="part-grid"></div>
-
-          <h3 class="part-title">Inner Ring</h3>
-          <div id="grid-inner" class="part-grid"></div>
-
-          <h3 class="part-title">Bracelet</h3>
-          <div id="grid-bracelet" class="part-grid"></div>
+          <!-- Grids will be generated dynamically from part_groups -->
 
           <div class="flex gap-3 pt-2">
             <button id="btn-reset" class="px-4 py-2 rounded-md border border-slate-300 bg-white hover:bg-slate-100">Reset</button>
@@ -128,5 +126,63 @@
     </div>
 
     <script src="./script.js"></script>
+    
+    <!-- Admin overlay -->
+    <div id="admin-overlay" class="fixed inset-0 hidden items-center justify-center bg-black/50 p-4 z-40">
+      <div class="bg-white rounded-lg w-full max-w-2xl overflow-auto max-h-[80vh]">
+        <div class="p-3 border-b border-slate-200 flex items-center justify-between">
+          <div class="text-sm font-semibold">Admin: Add SKU and Parts</div>
+          <div class="flex items-center gap-2">
+            <button id="admin-import" class="px-2 py-1 rounded-md border border-slate-300 bg-white text-slate-700 text-sm">Import JSON</button>
+            <button id="admin-export" class="px-2 py-1 rounded-md border border-slate-300 bg-white text-slate-700 text-sm">Export JSON</button>
+            <button id="close-admin" class="px-2 py-1 rounded-md bg-slate-800 text-white text-sm">Close</button>
+          </div>
+        </div>
+        <div class="p-4 space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <label class="text-sm">SKU ID
+              <input id="admin-sku-id" type="text" class="mt-1 w-full border border-slate-300 rounded-md px-2 py-1" placeholder="e.g. nautilus" />
+            </label>
+            <label class="text-sm">SKU Name
+              <input id="admin-sku-name" type="text" class="mt-1 w-full border border-slate-300 rounded-md px-2 py-1" placeholder="e.g. Nautilus" />
+            </label>
+          </div>
+          <div id="admin-sku-preview" class="text-xs text-brandMuted mt-1">SKU ID will be auto-generated from SKU Name if left blank</div>
+          <div id="admin-file-inputs" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <label class="text-sm">Dial images
+              <input id="admin-files-dial" type="file" accept="image/*" class="mt-1 block" multiple />
+            </label>
+            <label class="text-sm">Hands images
+              <input id="admin-files-hands" type="file" accept="image/*" class="mt-1 block" multiple />
+            </label>
+            <label class="text-sm">Second images
+              <input id="admin-files-second" type="file" accept="image/*" class="mt-1 block" multiple />
+            </label>
+            <label class="text-sm">Outer bezel images
+              <input id="admin-files-outer" type="file" accept="image/*" class="mt-1 block" multiple />
+            </label>
+            <label class="text-sm">Inner ring images
+              <input id="admin-files-inner" type="file" accept="image/*" class="mt-1 block" multiple />
+            </label>
+            <label class="text-sm">Bracelet images
+              <input id="admin-files-bracelet" type="file" accept="image/*" class="mt-1 block" multiple />
+            </label>
+          </div>
+          <div class="flex items-center gap-2">
+            <input id="admin-new-part-key" type="text" class="mt-1 w-56 border border-slate-300 rounded-md px-2 py-1 text-sm" placeholder="new part key (e.g. bezel2)" />
+            <button id="admin-add-part" type="button" class="mt-1 px-3 py-1 rounded-md border bg-white text-sm">Add part</button>
+          </div>
+          <div class="pt-2">
+            <button id="admin-save" class="px-4 py-2 rounded-md bg-emerald-600 text-white">Save SKU</button>
+          </div>
+          <div id="admin-list" class="pt-4">
+            <h4 class="text-sm font-medium">Existing SKUs & Parts</h4>
+            <div id="admin-list-contents" class="mt-2 space-y-2 text-sm text-brandMuted"></div>
+          </div>
+          <p class="text-xs text-brandMuted">หมายเหตุ: ข้อมูล admin จะเก็บในเบราว์เซอร์ (localStorage) และสามารถ Export/Import เป็นไฟล์ JSON ได้</p>
+          <input id="admin-import-input" type="file" accept="application/json" class="hidden" />
+        </div>
+      </div>
+    </div>
   </body>
   </html>

@@ -1,0 +1,1215 @@
+      applySelections(state);
+      // update selection UI
+      renderGroupSelection(gridId, state[groupKey]);
+    });
+
+    // Double click to open modal preview
+    card.addEventListener("dblclick", () => openModal(groupKey, idx));
+  });
+}
+
+// Render a compact horizontal row (mobile)
+function renderMobileRow(rowId, items, groupKey, state) {
+  const row = $(rowId);
+  if (!row) return;
+  row.innerHTML = "";
+  // Defensive: ensure items is an array before iterating (can be undefined when SKU lacks a group)
+  const list = Array.isArray(items) ? items : [];
+  list.forEach((it, idx) => {
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "thumb";
+    const img = document.createElement("img");
+    img.src = it.dataUrl ? it.dataUrl : IMG_BASE + it.file;
+    img.alt = it.label;
+    img.draggable = false;
+    const label = document.createElement("div");
+    label.className = "label";
+    label.textContent = it.label;
+    if (state[groupKey] === idx) card.classList.add("selected");
+    card.appendChild(img);
+    card.appendChild(label);
+    row.appendChild(card);
+    card.addEventListener("click", () => {
+      state[groupKey] = idx;
+      applySelections(state);
+      renderMobileRow(rowId, items, groupKey, state);
+    });
+    card.addEventListener("dblclick", () => openModal(groupKey, idx));
+  });
+}
+
+function renderGroupSelection(gridId, selectedIdx) {
+  const grid = $(gridId);
+  if (!grid) return;
+  [...grid.children].forEach((el, i) => {
+    el.classList.toggle("selected", i === selectedIdx);
+  });
+}
+
+function applySelections(state) {
+  // Helper to safely pick an item from PARTS for a given key using the state's index
+  function pickItem(key) {
+    try {
+      const arr = PARTS && PARTS[key];
+      if (!arr || !Array.isArray(arr) || arr.length === 0) return null;
+      const idx = state ? state[key] : undefined;
+      if (typeof idx === 'number') return arr[idx] || null;
+      const parsed = parseInt(idx, 10);
+      if (!Number.isNaN(parsed)) return arr[parsed] || null;
+      return arr[0] || null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Apply selections dynamically for all groups in MASTER_GROUP_LIST
+  MASTER_GROUP_LIST.forEach(groupInfo => {
+    const key = groupInfo.key;
+    setLayerFromItem(`layer-${key}`, pickItem(key));
+  });
+  
+  // After changing images, resync heights when images load
+  queueHeightSyncOnImages();
+}
+
+function randomizeState() {
+  const randIdx = (arr) => Math.floor(Math.random() * arr.length);
+  return {
+    dial: randIdx(PARTS.dial),
+    hands: randIdx(PARTS.hands),
+    second: randIdx(PARTS.second),
+      applySelections(state);
+      renderMobileRow(rowId, items, groupKey, state);
+    });
+    card.addEventListener("dblclick", () => openModal(groupKey, idx));
+  });
+}
+
+function renderGroupSelection(gridId, selectedIdx) {
+  const grid = $(gridId);
+  if (!grid) return;
+  [...grid.children].forEach((el, i) => {
+    el.classList.toggle("selected", i === selectedIdx);
+  });
+}
+
+function applySelections(state) {
+  // Helper to safely pick an item from PARTS for a given key using the state's index
+  function pickItem(key) {
+    try {
+      const arr = PARTS && PARTS[key];
+      if (!arr || !Array.isArray(arr) || arr.length === 0) return null;
+      const idx = state ? state[key] : undefined;
+      if (typeof idx === 'number') return arr[idx] || null;
+      const parsed = parseInt(idx, 10);
+      if (!Number.isNaN(parsed)) return arr[parsed] || null;
+      return arr[0] || null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Apply selections dynamically for all groups in MASTER_GROUP_LIST
+  MASTER_GROUP_LIST.forEach(groupInfo => {
+    const key = groupInfo.key;
+    setLayerFromItem(`layer-${key}`, pickItem(key));
+  });
+  
+  // After changing images, resync heights when images load
+  queueHeightSyncOnImages();
+}
+
+function randomizeState() {
+  const randIdx = (arr) => Math.floor(Math.random() * arr.length);
+  return {
+    dial: randIdx(PARTS.dial),
+    hands: randIdx(PARTS.hands),
+    second: randIdx(PARTS.second),
+    outer: randIdx(PARTS.outer),
+    inner: randIdx(PARTS.inner),
+    bracelet: randIdx(PARTS.bracelet)
+  };
+}
+
+// Modal helpers
+let modalContext = { groupKey: null, index: null };
+let heightSyncQueued = false;
+let zoom = 1; // default: 100%
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 2;
+const ZOOM_STEP = 0.1;
+function syncHeights() {
+  const previewCard = document.querySelector("#preview > div");
+  const panel = document.getElementById("controls-panel");
+  if (!previewCard || !panel) return;
+  if (window.matchMedia("(min-width: 768px)").matches) {
+    const rect = previewCard.getBoundingClientRect();
+    panel.style.maxHeight = "";
+    panel.style.height = Math.floor(rect.height) + "px";
+  } else {
+    panel.style.height = "";
+    panel.style.maxHeight = "";
+  }
+}
+
+// Simple toast helper (small non-blocking messages)
+function showToast(msg, type = 'info', timeout = 2500) {
+  let wrap = document.getElementById('toast-wrap');
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.id = 'toast-wrap';
+    wrap.style.position = 'fixed';
+function applySelections(state) {
+  // Helper to safely pick an item from PARTS for a given key using the state's index
+  function pickItem(key) {
+    try {
+      const arr = PARTS && PARTS[key];
+      if (!arr || !Array.isArray(arr) || arr.length === 0) return null;
+      const idx = state ? state[key] : undefined;
+      if (typeof idx === 'number') return arr[idx] || null;
+      const parsed = parseInt(idx, 10);
+      if (!Number.isNaN(parsed)) return arr[parsed] || null;
+      return arr[0] || null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Apply selections dynamically for all groups in MASTER_GROUP_LIST
+  MASTER_GROUP_LIST.forEach(groupInfo => {
+    const key = groupInfo.key;
+    setLayerFromItem(`layer-${key}`, pickItem(key));
+  });
+  
+  // After changing images, resync heights when images load
+  queueHeightSyncOnImages();
+}
+
+function randomizeState() {
+  const randIdx = (arr) => Math.floor(Math.random() * arr.length);
+  return {
+    dial: randIdx(PARTS.dial),
+    hands: randIdx(PARTS.hands),
+    second: randIdx(PARTS.second),
+    outer: randIdx(PARTS.outer),
+    inner: randIdx(PARTS.inner),
+    bracelet: randIdx(PARTS.bracelet)
+  };
+}
+
+// Modal helpers
+let modalContext = { groupKey: null, index: null };
+let heightSyncQueued = false;
+let zoom = 1; // default: 100%
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 2;
+const ZOOM_STEP = 0.1;
+function syncHeights() {
+  const previewCard = document.querySelector("#preview > div");
+  const panel = document.getElementById("controls-panel");
+  if (!previewCard || !panel) return;
+  if (window.matchMedia("(min-width: 768px)").matches) {
+    const rect = previewCard.getBoundingClientRect();
+    panel.style.maxHeight = "";
+    panel.style.height = Math.floor(rect.height) + "px";
+  } else {
+    panel.style.height = "";
+    panel.style.maxHeight = "";
+  }
+}
+
+// Simple toast helper (small non-blocking messages)
+function showToast(msg, type = 'info', timeout = 2500) {
+  let wrap = document.getElementById('toast-wrap');
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.id = 'toast-wrap';
+    wrap.style.position = 'fixed';
+    wrap.style.right = '16px';
+    wrap.style.top = '16px';
+    wrap.style.zIndex = 60;
+    document.body.appendChild(wrap);
+  }
+  const el = document.createElement('div');
+  el.textContent = msg;
+  el.className = 'px-3 py-2 rounded-md text-sm text-white';
+  el.style.marginTop = '8px';
+  el.style.boxShadow = '0 4px 12px rgba(0,0,0,0.12)';
+  if (type === 'success') el.style.background = '#059669';
+  else if (type === 'error') el.style.background = '#dc2626';
+  else el.style.background = '#374151';
+  wrap.appendChild(el);
+  setTimeout(() => { el.style.transition = 'opacity 300ms, transform 300ms'; el.style.opacity = '0'; el.style.transform = 'translateY(-6px)'; setTimeout(() => el.remove(), 350); }, timeout);
+function createDynamicLayers() {
+  const zoomInner = document.getElementById('zoom-inner');
+  if (!zoomInner) return;
+  
+  // Clear existing layers
+  zoomInner.innerHTML = '';
+  
+  // Create layers in order from MASTER_GROUP_LIST
+  MASTER_GROUP_LIST.forEach(groupInfo => {
+    const img = document.createElement('img');
+    img.id = `layer-${groupInfo.key}`;
+    img.alt = groupInfo.name_en || groupInfo.key;
+    img.className = 'absolute inset-0 w-full h-full object-contain';
+    img.style.visibility = 'hidden'; // initially hidden
+    zoomInner.appendChild(img);
+  });
+}
+
+// Function to create dynamic grids based on MASTER_GROUP_LIST and current SKU parts
+function createDynamicGrids() {
+  const controlsPanel = document.getElementById('controls-panel');
+  if (!controlsPanel) return;
+  
+  // Find the buttons container to preserve it
+  const buttonsContainer = controlsPanel.querySelector('.flex.gap-3');
+  
+  // Clear everything except the first paragraph and buttons
+  const firstP = controlsPanel.querySelector('p');
+  controlsPanel.innerHTML = '';
+  if (firstP) controlsPanel.appendChild(firstP);
+  
+  // Get groups that exist in current SKU
+  const currentParts = PARTS || {};
+  const availableGroups = MASTER_GROUP_LIST.filter(g => currentParts[g.key] && currentParts[g.key].length > 0);
+  
+  // Create grid for each available group
+  availableGroups.forEach(groupInfo => {
+    const key = groupInfo.key;
+    
+    // Create title
+    const title = document.createElement('h3');
+    title.className = 'part-title';
+    title.textContent = `${groupInfo.name_th} / ${groupInfo.name_en}`;
+    controlsPanel.appendChild(title);
+    
+    // Create grid
+    const grid = document.createElement('div');
+    grid.id = `grid-${key}`;
+    grid.className = 'part-grid';
+    controlsPanel.appendChild(grid);
+  });
+  
+  // Re-append buttons container
+  if (buttonsContainer) controlsPanel.appendChild(buttonsContainer);
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
+  // show loading overlay until catalog and initial images are loaded
+  showLoading(true);
+  await maybeLoadCatalogFromSupabase();
+  
+  // Create dynamic layers and grids after loading catalog
+  createDynamicLayers();
+  createDynamicGrids();
+  
+  // preload images for the initial SKU to avoid layout shift
+  try { await preloadImagesForSKU(currentSKU, 4000); } catch (e) { /* ignore */ }
+  showLoading(false);
+  // Set CSS var for header height so main can fit exactly 1 screen
+  applyHeaderHeightVar();
+  window.addEventListener('resize', applyHeaderHeightVar);
+  // Default state (index 0) - create dynamically from current PARTS
+  const state = {};
+  Object.keys(PARTS || {}).forEach(key => {
+    if (key !== '__name') state[key] = 0;
+  });
+
+  // Render grids dynamically for all groups that exist in current SKU
+  Object.keys(PARTS || {}).forEach(key => {
+    if (key === '__name') return;
+    const items = PARTS[key];
+function createDynamicGrids() {
+  const controlsPanel = document.getElementById('controls-panel');
+  if (!controlsPanel) return;
+  
+  // Find the buttons container to preserve it
+  const buttonsContainer = controlsPanel.querySelector('.flex.gap-3');
+  
+  // Clear everything except the first paragraph and buttons
+  const firstP = controlsPanel.querySelector('p');
+  controlsPanel.innerHTML = '';
+  if (firstP) controlsPanel.appendChild(firstP);
+  
+  // Get groups that exist in current SKU
+  const currentParts = PARTS || {};
+  const availableGroups = MASTER_GROUP_LIST.filter(g => currentParts[g.key] && currentParts[g.key].length > 0);
+  
+  // Create grid for each available group
+  availableGroups.forEach(groupInfo => {
+    const key = groupInfo.key;
+    
+    // Create title
+    const title = document.createElement('h3');
+    title.className = 'part-title';
+    title.textContent = `${groupInfo.name_th} / ${groupInfo.name_en}`;
+    controlsPanel.appendChild(title);
+    
+    // Create grid
+    const grid = document.createElement('div');
+    grid.id = `grid-${key}`;
+    grid.className = 'part-grid';
+    controlsPanel.appendChild(grid);
+  });
+  
+  // Re-append buttons container
+  if (buttonsContainer) controlsPanel.appendChild(buttonsContainer);
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
+  // show loading overlay until catalog and initial images are loaded
+  showLoading(true);
+  await maybeLoadCatalogFromSupabase();
+  
+  // Create dynamic layers and grids after loading catalog
+  createDynamicLayers();
+  createDynamicGrids();
+  
+  // preload images for the initial SKU to avoid layout shift
+  try { await preloadImagesForSKU(currentSKU, 4000); } catch (e) { /* ignore */ }
+  showLoading(false);
+  // Set CSS var for header height so main can fit exactly 1 screen
+  applyHeaderHeightVar();
+  window.addEventListener('resize', applyHeaderHeightVar);
+  // Default state (index 0) - create dynamically from current PARTS
+  const state = {};
+  Object.keys(PARTS || {}).forEach(key => {
+    if (key !== '__name') state[key] = 0;
+  });
+
+  // Render grids dynamically for all groups that exist in current SKU
+  Object.keys(PARTS || {}).forEach(key => {
+    if (key === '__name') return;
+    const items = PARTS[key];
+    if (Array.isArray(items) && items.length > 0) {
+      renderGrid(`grid-${key}`, items, key, state);
+      // Mobile overlay grids (share same data/state)
+      renderGrid(`mgrid-${key}`, items, key, state);
+    }
+  });
+
+  // Mobile bottom carousel logic (only if elements exist)
+  const mTitle = $("m-title");
+  const mSubtitle = $("m-subtitle");
+  const mPrev = $("m-prev");
+  const mNext = $("m-next");
+  const mRow = $("m-row");
+  const mPage = $("m-page");
+  if (mPrev && mNext) {
+    // Show all watch parts on mobile stepper
+    const groups = [
+      { key: "dial", title: "Dial", subtitle: "Choose a dial design" },
+      { key: "hands", title: "Hands", subtitle: "Pick hour/minute hands" },
+  createDynamicLayers();
+  createDynamicGrids();
+  
+  // preload images for the initial SKU to avoid layout shift
+  try { await preloadImagesForSKU(currentSKU, 4000); } catch (e) { /* ignore */ }
+  showLoading(false);
+  // Set CSS var for header height so main can fit exactly 1 screen
+  applyHeaderHeightVar();
+  window.addEventListener('resize', applyHeaderHeightVar);
+  // Default state (index 0) - create dynamically from current PARTS
+  const state = {};
+  Object.keys(PARTS || {}).forEach(key => {
+    if (key !== '__name') state[key] = 0;
+  });
+
+  // Render grids dynamically for all groups that exist in current SKU
+  Object.keys(PARTS || {}).forEach(key => {
+    if (key === '__name') return;
+    const items = PARTS[key];
+    if (Array.isArray(items) && items.length > 0) {
+      renderGrid(`grid-${key}`, items, key, state);
+      // Mobile overlay grids (share same data/state)
+      renderGrid(`mgrid-${key}`, items, key, state);
+    }
+  });
+
+  // Mobile bottom carousel logic (only if elements exist)
+  const mTitle = $("m-title");
+  const mSubtitle = $("m-subtitle");
+  const mPrev = $("m-prev");
+  const mNext = $("m-next");
+  const mRow = $("m-row");
+  const mPage = $("m-page");
+  if (mPrev && mNext) {
+    // Show all watch parts on mobile stepper
+    const groups = [
+      { key: "dial", title: "Dial", subtitle: "Choose a dial design" },
+      { key: "hands", title: "Hands", subtitle: "Pick hour/minute hands" },
+      { key: "second", title: "Second Hand", subtitle: "Pick the second hand" },
+      { key: "outer", title: "Outer Bezel", subtitle: "Select the outer bezel" },
+      { key: "inner", title: "Inner Ring", subtitle: "Select the inner ring" },
+      { key: "bracelet", title: "Bracelet", subtitle: "Choose a bracelet" }
+    ];
+    let page = 0;
+    function updateNavState() {
+      if (mPrev) mPrev.disabled = page <= 0;
+      if (mNext) mNext.disabled = page >= groups.length - 1;
+      if (mPage) mPage.textContent = `${page + 1}/${groups.length}`;
+    }
+    function setPage(p) {
+      // clamp to ends (no wrap)
+      page = Math.max(0, Math.min(p, groups.length - 1));
+      const g = groups[page];
+      if (mTitle) mTitle.textContent = g.title;
+      if (mSubtitle) mSubtitle.textContent = g.subtitle;
+      const items = PARTS[g.key];
+      if (mRow) renderMobileRow("m-row", items, g.key, state);
+      // Ensure row scrolls back to start on change
+      if (mRow) mRow.scrollTo({ left: 0, behavior: "smooth" });
+      updateNavState();
+    }
+    setPage(0);
+    const prevHandler = (e) => {
+      if (e && e.preventDefault) e.preventDefault();
+      setPage(page - 1);
+    };
+    const nextHandler = (e) => {
+      if (e && e.preventDefault) e.preventDefault();
+      setPage(page + 1);
+    };
+    mPrev.addEventListener("click", prevHandler);
+    mNext.addEventListener("click", nextHandler);
+  }
+
+  applySelections(state);
+
+  syncHeights();
+  window.addEventListener("resize", syncHeights);
+  queueHeightSyncOnImages();
+
+  // Buttons
+  createDynamicGrids();
+  
+  // preload images for the initial SKU to avoid layout shift
+  try { await preloadImagesForSKU(currentSKU, 4000); } catch (e) { /* ignore */ }
+  showLoading(false);
+  // Set CSS var for header height so main can fit exactly 1 screen
+  applyHeaderHeightVar();
+  window.addEventListener('resize', applyHeaderHeightVar);
+  // Default state (index 0) - create dynamically from current PARTS
+  const state = {};
+  Object.keys(PARTS || {}).forEach(key => {
+    if (key !== '__name') state[key] = 0;
+  });
+
+  // Render grids dynamically for all groups that exist in current SKU
+  Object.keys(PARTS || {}).forEach(key => {
+    if (key === '__name') return;
+    const items = PARTS[key];
+    if (Array.isArray(items) && items.length > 0) {
+      renderGrid(`grid-${key}`, items, key, state);
+      // Mobile overlay grids (share same data/state)
+      renderGrid(`mgrid-${key}`, items, key, state);
+    }
+  });
+
+  // Mobile bottom carousel logic (only if elements exist)
+  const mTitle = $("m-title");
+  const mSubtitle = $("m-subtitle");
+  const mPrev = $("m-prev");
+  const mNext = $("m-next");
+  const mRow = $("m-row");
+  const mPage = $("m-page");
+  if (mPrev && mNext) {
+    // Show all watch parts on mobile stepper
+    const groups = [
+      { key: "dial", title: "Dial", subtitle: "Choose a dial design" },
+      { key: "hands", title: "Hands", subtitle: "Pick hour/minute hands" },
+      { key: "second", title: "Second Hand", subtitle: "Pick the second hand" },
+      { key: "outer", title: "Outer Bezel", subtitle: "Select the outer bezel" },
+      { key: "inner", title: "Inner Ring", subtitle: "Select the inner ring" },
+      { key: "bracelet", title: "Bracelet", subtitle: "Choose a bracelet" }
+    ];
+    let page = 0;
+    function updateNavState() {
+      if (mPrev) mPrev.disabled = page <= 0;
+      if (mNext) mNext.disabled = page >= groups.length - 1;
+      if (mPage) mPage.textContent = `${page + 1}/${groups.length}`;
+    }
+    function setPage(p) {
+      // clamp to ends (no wrap)
+      page = Math.max(0, Math.min(p, groups.length - 1));
+      const g = groups[page];
+      if (mTitle) mTitle.textContent = g.title;
+      if (mSubtitle) mSubtitle.textContent = g.subtitle;
+      const items = PARTS[g.key];
+      if (mRow) renderMobileRow("m-row", items, g.key, state);
+      // Ensure row scrolls back to start on change
+      if (mRow) mRow.scrollTo({ left: 0, behavior: "smooth" });
+      updateNavState();
+    }
+    setPage(0);
+    const prevHandler = (e) => {
+      if (e && e.preventDefault) e.preventDefault();
+      setPage(page - 1);
+    };
+    const nextHandler = (e) => {
+      if (e && e.preventDefault) e.preventDefault();
+      setPage(page + 1);
+    };
+    mPrev.addEventListener("click", prevHandler);
+    mNext.addEventListener("click", nextHandler);
+  }
+
+  applySelections(state);
+
+  syncHeights();
+  window.addEventListener("resize", syncHeights);
+  queueHeightSyncOnImages();
+
+  // Buttons
+  const btnReset = $("btn-reset");
+  applySelections(state);
+
+  syncHeights();
+  window.addEventListener("resize", syncHeights);
+  queueHeightSyncOnImages();
+
+  // Buttons
+  const btnReset = $("btn-reset");
+  if (btnReset) {
+    btnReset.addEventListener("click", () => {
+      // Reset all groups to index 0
+      Object.keys(PARTS || {}).forEach(key => {
+        if (key !== '__name') state[key] = 0;
+      });
+      // Re-render all grids
+      Object.keys(PARTS || {}).forEach(key => {
+        if (key === '__name') return;
+        const items = PARTS[key];
+        if (Array.isArray(items) && items.length > 0) {
+          renderGrid(`grid-${key}`, items, key, state);
+        }
+      });
+      applySelections(state);
+    });
+  }
+
+  const btnRandom = $("btn-random");
+  if (btnRandom) {
+    btnRandom.addEventListener("click", () => {
+      // Randomize all groups
+      const randIdx = (arr) => Math.floor(Math.random() * arr.length);
+      Object.keys(PARTS || {}).forEach(key => {
+        if (key !== '__name' && Array.isArray(PARTS[key]) && PARTS[key].length > 0) {
+          state[key] = randIdx(PARTS[key]);
+        }
+      });
+      // Re-render all grids
+      Object.keys(PARTS || {}).forEach(key => {
+        if (key === '__name') return;
+        const items = PARTS[key];
+        if (Array.isArray(items) && items.length > 0) {
+          renderGrid(`grid-${key}`, items, key, state);
+        }
+      });
+      applySelections(state);
+    });
+  }
+
+  // Modal bindings
+  const modalClose = $("modal-close");
+  if (modalClose) modalClose.addEventListener("click", closeModal);
+  const imageModal = $("image-modal");
+  if (imageModal) {
+    imageModal.addEventListener("click", (e) => {
+      if (e.target && e.target.id === "image-modal") closeModal();
+    });
+  }
+  const modalSelect = $("modal-select");
+  if (modalSelect) {
+    modalSelect.addEventListener("click", () => {
+      if (modalContext.groupKey == null) return closeModal();
+      // apply chosen
+      state[modalContext.groupKey] = modalContext.index;
+      applySelections(state);
+      // re-render group for selection state
+      renderGrid(
+        `grid-${modalContext.groupKey}`,
+        PARTS[modalContext.groupKey],
+        modalContext.groupKey,
+        state
+      );
+      closeModal();
+    });
+  }
+
+  // Mobile overlay controls
+  const openMobile = $("open-mobile");
+  const closeMobile = $("close-mobile");
+  const mobileOverlay = $("mobile-overlay");
+  if (openMobile && closeMobile && mobileOverlay) {
+    openMobile.addEventListener("click", () => {
+      applySelections(state);
+    });
+  }
+
+  const btnRandom = $("btn-random");
+  if (btnRandom) {
+    btnRandom.addEventListener("click", () => {
+      // Randomize all groups
+      const randIdx = (arr) => Math.floor(Math.random() * arr.length);
+      Object.keys(PARTS || {}).forEach(key => {
+        if (key !== '__name' && Array.isArray(PARTS[key]) && PARTS[key].length > 0) {
+          state[key] = randIdx(PARTS[key]);
+        }
+      });
+      // Re-render all grids
+      Object.keys(PARTS || {}).forEach(key => {
+        if (key === '__name') return;
+        const items = PARTS[key];
+        if (Array.isArray(items) && items.length > 0) {
+          renderGrid(`grid-${key}`, items, key, state);
+        }
+      });
+      applySelections(state);
+    });
+  }
+
+  // Modal bindings
+  const modalClose = $("modal-close");
+  if (modalClose) modalClose.addEventListener("click", closeModal);
+  const imageModal = $("image-modal");
+  if (imageModal) {
+    imageModal.addEventListener("click", (e) => {
+      if (e.target && e.target.id === "image-modal") closeModal();
+    });
+  }
+  const modalSelect = $("modal-select");
+  if (modalSelect) {
+    modalSelect.addEventListener("click", () => {
+      if (modalContext.groupKey == null) return closeModal();
+      // apply chosen
+      state[modalContext.groupKey] = modalContext.index;
+      applySelections(state);
+      // re-render group for selection state
+      renderGrid(
+        `grid-${modalContext.groupKey}`,
+        PARTS[modalContext.groupKey],
+        modalContext.groupKey,
+        state
+      );
+      closeModal();
+    });
+  }
+
+  // Mobile overlay controls
+  const openMobile = $("open-mobile");
+  const closeMobile = $("close-mobile");
+  const mobileOverlay = $("mobile-overlay");
+  if (openMobile && closeMobile && mobileOverlay) {
+    openMobile.addEventListener("click", () => {
+      mobileOverlay.classList.remove("hidden");
+      const drawer = document.getElementById("mobile-drawer");
+      if (drawer) {
+        // start off-screen then animate in
+        requestAnimationFrame(() => {
+          drawer.style.transform = "translateX(0)";
+        });
+      }
+    });
+    closeMobile.addEventListener("click", () => {
+      const drawer = document.getElementById("mobile-drawer");
+      if (drawer) drawer.style.transform = "translateX(-100%)";
+      setTimeout(() => mobileOverlay.classList.add("hidden"), 300);
+    });
+    mobileOverlay.addEventListener("click", (e) => {
+      if (e.target && e.target.id === "mobile-backdrop") {
+        const drawer = document.getElementById("mobile-drawer");
+        if (drawer) drawer.style.transform = "translateX(-100%)";
+        setTimeout(() => mobileOverlay.classList.add("hidden"), 300);
+      }
+    });
+  }
+      applySelections(state);
+    });
+  }
+
+  // Modal bindings
+  const modalClose = $("modal-close");
+  if (modalClose) modalClose.addEventListener("click", closeModal);
+  const imageModal = $("image-modal");
+  if (imageModal) {
+    imageModal.addEventListener("click", (e) => {
+      if (e.target && e.target.id === "image-modal") closeModal();
+    });
+  }
+  const modalSelect = $("modal-select");
+  if (modalSelect) {
+    modalSelect.addEventListener("click", () => {
+      if (modalContext.groupKey == null) return closeModal();
+      // apply chosen
+      state[modalContext.groupKey] = modalContext.index;
+      applySelections(state);
+      // re-render group for selection state
+      renderGrid(
+        `grid-${modalContext.groupKey}`,
+        PARTS[modalContext.groupKey],
+        modalContext.groupKey,
+        state
+      );
+      closeModal();
+    });
+  }
+
+  // Mobile overlay controls
+  const openMobile = $("open-mobile");
+  const closeMobile = $("close-mobile");
+  const mobileOverlay = $("mobile-overlay");
+  if (openMobile && closeMobile && mobileOverlay) {
+    openMobile.addEventListener("click", () => {
+      mobileOverlay.classList.remove("hidden");
+      const drawer = document.getElementById("mobile-drawer");
+      if (drawer) {
+        // start off-screen then animate in
+        requestAnimationFrame(() => {
+          drawer.style.transform = "translateX(0)";
+        });
+      }
+    });
+    closeMobile.addEventListener("click", () => {
+      const drawer = document.getElementById("mobile-drawer");
+      if (drawer) drawer.style.transform = "translateX(-100%)";
+      setTimeout(() => mobileOverlay.classList.add("hidden"), 300);
+    });
+    mobileOverlay.addEventListener("click", (e) => {
+      if (e.target && e.target.id === "mobile-backdrop") {
+        const drawer = document.getElementById("mobile-drawer");
+        if (drawer) drawer.style.transform = "translateX(-100%)";
+        setTimeout(() => mobileOverlay.classList.add("hidden"), 300);
+      }
+    });
+  }
+
+  // Zoom controls (desktop)
+  const zoomInner = $("zoom-inner");
+  const zoomInBtn = $("zoom-in");
+  const zoomOutBtn = $("zoom-out");
+  const zoomResetBtn = $("zoom-reset");
+  function applyZoom() {
+    if (!zoomInner) return;
+    // Keep horizontally centered but align to the top vertically
+    zoomInner.style.transformOrigin = 'center top';
+    zoomInner.style.transform = `scale(${zoom})`;
+    if (zoomOutBtn) zoomOutBtn.disabled = zoom <= MIN_ZOOM + 1e-6;
+    if (zoomInBtn) zoomInBtn.disabled = zoom >= MAX_ZOOM - 1e-6;
+    if (zoomResetBtn) {
+      const pct = Math.round(zoom * 100);
+      zoomResetBtn.textContent = `${pct}%`;
+      zoomResetBtn.title = 'Reset zoom to fit';
+    }
+  }
+  // expose helpers so other functions can reset to fit
+  window.__applyZoom = applyZoom;
+  window.__resetZoomToFit = function() { zoom = 1; applyZoom(); };
+      applySelections(state);
+      // re-render group for selection state
+      renderGrid(
+        `grid-${modalContext.groupKey}`,
+        PARTS[modalContext.groupKey],
+        modalContext.groupKey,
+        state
+      );
+      closeModal();
+    });
+  }
+
+  // Mobile overlay controls
+  const openMobile = $("open-mobile");
+  const closeMobile = $("close-mobile");
+  const mobileOverlay = $("mobile-overlay");
+  if (openMobile && closeMobile && mobileOverlay) {
+    openMobile.addEventListener("click", () => {
+      mobileOverlay.classList.remove("hidden");
+      const drawer = document.getElementById("mobile-drawer");
+      if (drawer) {
+        // start off-screen then animate in
+        requestAnimationFrame(() => {
+          drawer.style.transform = "translateX(0)";
+        });
+      }
+    });
+    closeMobile.addEventListener("click", () => {
+      const drawer = document.getElementById("mobile-drawer");
+      if (drawer) drawer.style.transform = "translateX(-100%)";
+      setTimeout(() => mobileOverlay.classList.add("hidden"), 300);
+    });
+    mobileOverlay.addEventListener("click", (e) => {
+      if (e.target && e.target.id === "mobile-backdrop") {
+        const drawer = document.getElementById("mobile-drawer");
+        if (drawer) drawer.style.transform = "translateX(-100%)";
+        setTimeout(() => mobileOverlay.classList.add("hidden"), 300);
+      }
+    });
+  }
+
+  // Zoom controls (desktop)
+  const zoomInner = $("zoom-inner");
+  const zoomInBtn = $("zoom-in");
+  const zoomOutBtn = $("zoom-out");
+  const zoomResetBtn = $("zoom-reset");
+  function applyZoom() {
+    if (!zoomInner) return;
+    // Keep horizontally centered but align to the top vertically
+    zoomInner.style.transformOrigin = 'center top';
+    zoomInner.style.transform = `scale(${zoom})`;
+    if (zoomOutBtn) zoomOutBtn.disabled = zoom <= MIN_ZOOM + 1e-6;
+    if (zoomInBtn) zoomInBtn.disabled = zoom >= MAX_ZOOM - 1e-6;
+    if (zoomResetBtn) {
+      const pct = Math.round(zoom * 100);
+      zoomResetBtn.textContent = `${pct}%`;
+      zoomResetBtn.title = 'Reset zoom to fit';
+    }
+  }
+  // expose helpers so other functions can reset to fit
+  window.__applyZoom = applyZoom;
+  window.__resetZoomToFit = function() { zoom = 1; applyZoom(); };
+  if (zoomInBtn) {
+    zoomInBtn.addEventListener('click', () => {
+      zoom = Math.min(MAX_ZOOM, Math.round((zoom + ZOOM_STEP) * 100) / 100);
+      applyZoom();
+    });
+  }
+  if (zoomOutBtn) {
+    zoomOutBtn.addEventListener('click', () => {
+      zoom = Math.max(MIN_ZOOM, Math.round((zoom - ZOOM_STEP) * 100) / 100);
+      applyZoom();
+    });
+  }
+  if (zoomResetBtn) {
+    zoomResetBtn.addEventListener('click', () => {
+      zoom = 1;
+      applyZoom();
+    });
+  }
+  applyZoom();
+      createDynamicGrids();
+      
+      // Render all grids dynamically
+      Object.keys(PARTS || {}).forEach(key => {
+        if (key === '__name') return;
+        const items = PARTS[key];
+        if (Array.isArray(items) && items.length > 0) {
+          renderGrid(`grid-${key}`, items, key, newState);
+          // mobile grids
+          renderGrid(`mgrid-${key}`, items, key, newState);
+        }
+      });
+      
+      // update PARTS-based selections
+      applySelections(newState);
+    });
+  }
+
+  // Admin overlay events (localStorage based)
+  // Open admin as a separate page instead of overlay
+  const openAdmin = $("open-admin");
+  if (openAdmin) {
+    openAdmin.addEventListener('click', (e) => {
+      e.preventDefault();
+      // open admin.html in same tab
+      window.location.href = './admin.html';
+    });
+  }
+
+  const adminSave = $("admin-save");
+  if (adminSave) {
+    adminSave.addEventListener('click', async () => {
+      // button now handled to prevent duplicate submits; UI state managed
+      const prevText = adminSave.textContent;
+      if (adminSave.disabled) return;
+      adminSave.disabled = true;
+      adminSave.classList.add('opacity-70', 'cursor-wait');
+      adminSave.textContent = 'Saving...';
+      try {
+        const skuIdRaw = (document.getElementById('admin-sku-id')?.value || '').trim();
+        const skuName = (document.getElementById('admin-sku-name')?.value || '').trim();
+        if (!skuIdRaw && !skuName) { showToast('กรุณาใส่ชื่อรุ่นหรือ SKU ID อย่างน้อยหนึ่งช่อง', 'error'); return; }
+        const skuKey = sanitizeKey(skuIdRaw || skuName);
+        const supa = getSupabaseClient();
+        const bucket = window.SUPABASE_BUCKET || 'watch-assets';
+        // collect dynamic groups present in file inputs
+        // determine which groups are toggled on in the UI (existing + new)
+        const toggles = document.querySelectorAll('#admin-part-toggles input.part-toggle');
+        let groups = [];
+        toggles.forEach(t => { if (t.checked && t.dataset && t.dataset.group) groups.push(t.dataset.group); });
+        // Also include any file inputs that actually contain files (covers index.html admin inputs
+        // where toggles may not be used). This ensures groups are detected when user selected files
+        // but didn't toggle the part checkboxes.
+        try {
+          const fileInputs = Array.from(document.querySelectorAll('input[id^="admin-files-"]'));
+          fileInputs.forEach((input) => {
+            try {
+              const id = input && input.id ? input.id : '';
+              const m = id.match(/^admin-files-(.+)$/);
+              if (m && m[1]) {
+                const g = m[1];
+                const hasFiles = input.files && input.files.length;
+                // include if toggled on OR files present
+                if (hasFiles || !groups.includes(g)) {
+                  groups.push(g);
+                }
+              }
+            } catch (e) { /* ignore per-input */ }
+          });
+        } catch (e) { /* ignore DOM quirks */ }
+        // de-duplicate
+        groups = Array.from(new Set(groups));
+        console.debug('admin-save detected groups:', groups);
+        const assetRows = [];
+        if (supa) {
+          const { error: eSku } = await supa.from('skus').upsert({ id: skuKey, name: skuName || skuIdRaw }).select();
+          if (eSku) throw eSku;
+          // fetch existing counts
+          const { data: existingAssets } = await supa.from('assets').select('group_key, sort').eq('sku_id', skuKey);
+          const counts = {};
+          groups.forEach(g => { counts[g] = (existingAssets || []).filter(a => a.group_key === g).length; });
+      applySelections(newState);
+    });
+  }
+
+  // Admin overlay events (localStorage based)
+  // Open admin as a separate page instead of overlay
+  const openAdmin = $("open-admin");
+  if (openAdmin) {
+    openAdmin.addEventListener('click', (e) => {
+      e.preventDefault();
+      // open admin.html in same tab
+      window.location.href = './admin.html';
+    });
+  }
+
+  const adminSave = $("admin-save");
+  if (adminSave) {
+    adminSave.addEventListener('click', async () => {
+      // button now handled to prevent duplicate submits; UI state managed
+      const prevText = adminSave.textContent;
+      if (adminSave.disabled) return;
+      adminSave.disabled = true;
+      adminSave.classList.add('opacity-70', 'cursor-wait');
+      adminSave.textContent = 'Saving...';
+      try {
+        const skuIdRaw = (document.getElementById('admin-sku-id')?.value || '').trim();
+        const skuName = (document.getElementById('admin-sku-name')?.value || '').trim();
+        if (!skuIdRaw && !skuName) { showToast('กรุณาใส่ชื่อรุ่นหรือ SKU ID อย่างน้อยหนึ่งช่อง', 'error'); return; }
+        const skuKey = sanitizeKey(skuIdRaw || skuName);
+        const supa = getSupabaseClient();
+        const bucket = window.SUPABASE_BUCKET || 'watch-assets';
+        // collect dynamic groups present in file inputs
+        // determine which groups are toggled on in the UI (existing + new)
+        const toggles = document.querySelectorAll('#admin-part-toggles input.part-toggle');
+        let groups = [];
+        toggles.forEach(t => { if (t.checked && t.dataset && t.dataset.group) groups.push(t.dataset.group); });
+        // Also include any file inputs that actually contain files (covers index.html admin inputs
+        // where toggles may not be used). This ensures groups are detected when user selected files
+        // but didn't toggle the part checkboxes.
+        try {
+          const fileInputs = Array.from(document.querySelectorAll('input[id^="admin-files-"]'));
+          fileInputs.forEach((input) => {
+            try {
+              const id = input && input.id ? input.id : '';
+              const m = id.match(/^admin-files-(.+)$/);
+              if (m && m[1]) {
+                const g = m[1];
+                const hasFiles = input.files && input.files.length;
+                // include if toggled on OR files present
+                if (hasFiles || !groups.includes(g)) {
+                  groups.push(g);
+                }
+              }
+            } catch (e) { /* ignore per-input */ }
+          });
+        } catch (e) { /* ignore DOM quirks */ }
+        // de-duplicate
+        groups = Array.from(new Set(groups));
+        console.debug('admin-save detected groups:', groups);
+        const assetRows = [];
+        if (supa) {
+          const { error: eSku } = await supa.from('skus').upsert({ id: skuKey, name: skuName || skuIdRaw }).select();
+          if (eSku) throw eSku;
+          // fetch existing counts
+          const { data: existingAssets } = await supa.from('assets').select('group_key, sort').eq('sku_id', skuKey);
+          const counts = {};
+          groups.forEach(g => { counts[g] = (existingAssets || []).filter(a => a.group_key === g).length; });
+          for (const g of groups) {
+            const input = document.getElementById('admin-files-' + g);
+            const files = input && input.files ? Array.from(input.files) : [];
+            let idx = (counts[g] || 0) + 1;
+            for (const f of files) {
+              const safeName = sanitizeFileName(f.name);
+              const path = `${skuKey}/${g}/${Date.now()}-${idx}-${safeName}`;
+              const { error: eUp } = await supa.storage.from(bucket).upload(path, f, { upsert: true, contentType: f.type });
+              if (eUp) throw eUp;
+              const { data: pub } = supa.storage.from(bucket).getPublicUrl(path);
+              const url = pub?.publicUrl || '';
+              assetRows.push({ sku_id: skuKey, group_key: g, label: `${g[0].toUpperCase()+g.slice(1)} ${idx}`, url, sort: idx });
+              idx++;
+            }
+                applySelections(state);
+                queueHeightSyncOnImages();
+              }
+            }
+            
+            // Re-render modal thumbs to show updated list (use fresh CATALOG data)
+            setTimeout(() => {
+              renderModalThumbs();
+            }, 100);
+            
+            // Update the SKU table if on admin page
+            if (typeof refreshSkuTable === 'function') {
+              refreshSkuTable();
+            }
+          } else {
+            // Local-only deletion fallback
+            if (CATALOG[modalContextSku] && Array.isArray(CATALOG[modalContextSku][g])) {
+              CATALOG[modalContextSku][g].splice(idx, 1);
+              localStorage.setItem('watchCatalog', JSON.stringify(CATALOG));
+              
+              if (modalContextSku === currentSKU) {
+                PARTS = CATALOG[currentSKU] || {};
+                renderGrid('grid-' + g, PARTS[g] || [], g, state);
+                const mid = 'mgrid-' + g;
+                const mel = document.getElementById(mid);
+                if (mel) renderGrid(mid, PARTS[g] || [], g, state);
+                applySelections(state);
+                queueHeightSyncOnImages();
+              }
+              
+              renderModalThumbs();
+              showToast('ลบรูปสำเร็จ (Local)', 'success');
+            }
+          }
+        } catch (e) { 
+          console.error(e); 
+          showToast('เกิดข้อผิดพลาดขณะลบ: ' + (e && e.message ? e.message : String(e)), 'error'); 
+          del.disabled = false;
+          del.textContent = 'ลบ';
+        }
+      });
+      wrap.appendChild(img); wrap.appendChild(del); pmThumbs.appendChild(wrap);
+    });
+  }
+  if (pmAddBtn) pmAddBtn.addEventListener('click', async () => {
+    if (!modalContextSku) return;
+    if (pmAddBtn.disabled) return; // prevent double submit
+    const prevText = pmAddBtn.textContent;
+    try {
+      pmAddBtn.disabled = true;
+      pmAddBtn.classList.add('opacity-70', 'cursor-wait');
+      pmAddBtn.textContent = 'กำลังอัปโหลด...';
+
+      const files = pmFiles && pmFiles.files ? Array.from(pmFiles.files) : [];
+      if (!files.length) { showToast('โปรดเลือกไฟล์ก่อน', 'error'); return; }
+      const g = pmGroupSelect ? pmGroupSelect.value : null;
+      if (!g) { showToast('โปรดเลือกกลุ่ม', 'error'); return; }
+      const supa = getSupabaseClient();
+      if (supa) {
+        const bucket = window.SUPABASE_BUCKET || 'watch-assets';
+        try {
+          // fetch existing counts
+          const { data: existingAssets } = await supa.from('assets').select('group_key, sort').eq('sku_id', modalContextSku);
+          const counts = {};
+          (existingAssets || []).forEach(a => { counts[a.group_key] = Math.max(counts[a.group_key] || 0, a.sort || 0); });
+          let idx = (counts[g] || 0) + 1;
+          const assetRows = [];
+          for (const f of files) {
+            const safeName = sanitizeFileName(f.name);
+            const path = `${modalContextSku}/${g}/${Date.now()}-${idx}-${safeName}`;
+            const { error: eUp } = await supa.storage.from(bucket).upload(path, f, { upsert: true, contentType: f.type });
+            if (eUp) throw eUp;
+            const { data: pub } = supa.storage.from(bucket).getPublicUrl(path);
+            const url = pub?.publicUrl || '';
+            assetRows.push({ sku_id: modalContextSku, group_key: g, label: `${g[0].toUpperCase()+g.slice(1)} ${idx}`, url, sort: idx });
+            idx++;
+          }
+          if (assetRows.length) {
+            const { error: eIns } = await supa.from('assets').insert(assetRows).select();
+            if (eIns) throw eIns;
+          }
+                applySelections(state);
+                queueHeightSyncOnImages();
+              }
+              
+              renderModalThumbs();
+              showToast('ลบรูปสำเร็จ (Local)', 'success');
+            }
+          }
+        } catch (e) { 
+          console.error(e); 
+          showToast('เกิดข้อผิดพลาดขณะลบ: ' + (e && e.message ? e.message : String(e)), 'error'); 
+          del.disabled = false;
+          del.textContent = 'ลบ';
+        }
+      });
+      wrap.appendChild(img); wrap.appendChild(del); pmThumbs.appendChild(wrap);
+    });
+  }
+  if (pmAddBtn) pmAddBtn.addEventListener('click', async () => {
+    if (!modalContextSku) return;
+    if (pmAddBtn.disabled) return; // prevent double submit
+    const prevText = pmAddBtn.textContent;
+    try {
+      pmAddBtn.disabled = true;
+      pmAddBtn.classList.add('opacity-70', 'cursor-wait');
+      pmAddBtn.textContent = 'กำลังอัปโหลด...';
+
+      const files = pmFiles && pmFiles.files ? Array.from(pmFiles.files) : [];
+      if (!files.length) { showToast('โปรดเลือกไฟล์ก่อน', 'error'); return; }
+      const g = pmGroupSelect ? pmGroupSelect.value : null;
+      if (!g) { showToast('โปรดเลือกกลุ่ม', 'error'); return; }
+      const supa = getSupabaseClient();
+      if (supa) {
+        const bucket = window.SUPABASE_BUCKET || 'watch-assets';
+        try {
+          // fetch existing counts
+          const { data: existingAssets } = await supa.from('assets').select('group_key, sort').eq('sku_id', modalContextSku);
+          const counts = {};
+          (existingAssets || []).forEach(a => { counts[a.group_key] = Math.max(counts[a.group_key] || 0, a.sort || 0); });
+          let idx = (counts[g] || 0) + 1;
+          const assetRows = [];
+          for (const f of files) {
+            const safeName = sanitizeFileName(f.name);
+            const path = `${modalContextSku}/${g}/${Date.now()}-${idx}-${safeName}`;
+            const { error: eUp } = await supa.storage.from(bucket).upload(path, f, { upsert: true, contentType: f.type });
+            if (eUp) throw eUp;
+            const { data: pub } = supa.storage.from(bucket).getPublicUrl(path);
+            const url = pub?.publicUrl || '';
+            assetRows.push({ sku_id: modalContextSku, group_key: g, label: `${g[0].toUpperCase()+g.slice(1)} ${idx}`, url, sort: idx });
+            idx++;
+          }
+          if (assetRows.length) {
+            const { error: eIns } = await supa.from('assets').insert(assetRows).select();
+            if (eIns) throw eIns;
+          }
+          await maybeLoadCatalogFromSupabase();
+          refreshSkuTable();
+          renderModalThumbs();
+          showToast('เพิ่มรูปสำเร็จ', 'success');
+          // Clear file input to avoid confusion
+          if (pmFiles) pmFiles.value = '';
+        } catch (err) {
+          console.error(err);
+          showToast('ไม่สามารถอัปโหลดได้: ' + (err && err.message ? err.message : ''), 'error');
+          // Clear file input as well to reduce confusion
+          if (pmFiles) pmFiles.value = '';
+        }
+      } else {
+        // local fallback
+        const existing = CATALOG[modalContextSku] || { __name: modalContextSku };
+        existing[g] = existing[g] || [];
+        for (const f of files) {
+          try { const dataUrl = await fileToDataURL(f); existing[g].push({ label: `${g} ${existing[g].length+1}`, dataUrl }); } catch (e) { console.error(e); }
+        }
+        CATALOG[modalContextSku] = existing;
+        localStorage.setItem('watchCatalog', JSON.stringify(CATALOG));
+        refreshSkuTable();
+        renderModalThumbs();
+        showToast('เพิ่มรูป (Local) สำเร็จ', 'success');
+        if (pmFiles) pmFiles.value = '';
+      }

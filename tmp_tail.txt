@@ -1,0 +1,260 @@
+        populateAdminSkuSelect();
+        renderAdminList();
+      }
+    });
+  }
+
+  // Enable/disable file inputs when toggles change
+  function updatePartInputsState() {
+    // support both checkbox table and legacy toggles
+    const toggles = Array.from(document.querySelectorAll('#admin-parts-table tbody input.part-checkbox'))
+      .concat(Array.from(document.querySelectorAll('#admin-part-toggles input.part-toggle')));
+    toggles.forEach(t => {
+      const g = t.dataset.group;
+      const wrap = document.getElementById('wrap-admin-files-' + g) || document.getElementById('admin-files-' + g)?.parentElement;
+      const input = document.getElementById('admin-files-' + g);
+      if (wrap) {
+        if (t.checked) wrap.classList.remove('part-disabled');
+        else wrap.classList.add('part-disabled');
+      }
+      if (input) input.disabled = !t.checked;
+      // if checkbox is in table, mark the row disabled state
+      const row = t.closest('tr');
+      if (row) row.classList.toggle('part-disabled', !t.checked);
+    });
+  }
+  // wire legacy toggles and table checkboxes
+  const partToggles = document.querySelectorAll('#admin-part-toggles input.part-toggle');
+  partToggles.forEach(t => t.addEventListener('change', updatePartInputsState));
+  const tableCheckboxes = document.querySelectorAll('#admin-parts-table tbody input.part-checkbox');
+  tableCheckboxes.forEach(t => t.addEventListener('change', updatePartInputsState));
+  // initial state
+  updatePartInputsState();
+
+  // Download PNG with watermark
+  const btnDownload = $("btn-download");
+  if (btnDownload) {
+    btnDownload.addEventListener('click', async () => {
+      try {
+        const dataUrl = await composePreviewPNG({ watermark: '© Your Brand' });
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        const ts = new Date().toISOString().replace(/[:.]/g,'-');
+        a.download = `${currentSKU}-${ts}.png`;
+        document.body.appendChild(a); a.click(); a.remove();
+      } catch (e) { alert('ไม่สามารถบันทึกรูปได้'); }
+    });
+  }
+
+  // --- Add Group to SKU Modal Logic ---
+  const masterGroupList = ['bracelet','outer','inner','dial','hands','second'];
+
+  function openGroupAddModal() {
+    if (!modalContextSku) return;
+    gamSkuKey.textContent = modalContextSku;
+    gamGroupList.innerHTML = '';
+
+    const existingGroups = getGroupsFromCatalog(CATALOG[modalContextSku] || {});
+
+    MASTER_GROUP_LIST.forEach(groupInfo => {
+      const group = groupInfo.key;
+      const isExisting = existingGroups.includes(group);
+      const label = document.createElement('label');
+      label.className = 'flex items-center p-2 rounded-md hover:bg-gray-50';
+      if (isExisting) label.classList.add('opacity-50', 'cursor-not-allowed');
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.name = 'groupToAdd';
+      checkbox.value = group;
+      checkbox.className = 'mr-3 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500';
+      if (isExisting) {
+        checkbox.checked = true;
+        checkbox.disabled = true;
+      }
+      
+      const text = document.createElement('span');
+      text.textContent = `${groupInfo.name_th} (${groupInfo.name_en})`;
+
+      label.appendChild(checkbox);
+      label.appendChild(text);
+      gamGroupList.appendChild(label);
+    });
+
+    if (groupAddModal) groupAddModal.classList.remove('hidden');
+  }
+  
+  function closeGroupAddModal() {
+    if (groupAddModal) groupAddModal.classList.add('hidden');
+  }
+
+  if (btnAddGroup) btnAddGroup.addEventListener('click', openGroupAddModal);
+  if (gamClose) gamClose.addEventListener('click', closeGroupAddModal);
+  if (gamSave) {
+    gamSave.addEventListener('click', () => {
+      const checkboxes = gamGroupList.querySelectorAll('input[name="groupToAdd"]:checked:not(:disabled)');
+      const groupsToAdd = Array.from(checkboxes).map(cb => cb.value);
+
+      if (groupsToAdd.length > 0) {
+        if (!CATALOG[modalContextSku]) {
+          CATALOG[modalContextSku] = { __name: modalContextSku };
+        }
+        groupsToAdd.forEach(group => {
+          if (!CATALOG[modalContextSku][group]) {
+            CATALOG[modalContextSku][group] = [];
+          }
+        });
+
+        // Potentially save to localStorage or Supabase if needed, for now just update UI
+        localStorage.setItem('watchCatalog', JSON.stringify(CATALOG));
+
+        // Refresh the main part modal's dropdown
+        openPartModalForSKU(modalContextSku); 
+      }
+      closeGroupAddModal();
+    });
+  }
+
+  if (gamAddNewBtn) {
+    gamAddNewBtn.addEventListener('click', async () => {
+        const key = sanitizeKey((gamNewKeyInput.value || '').trim());
+        const name_th = (gamNewNameThInput.value || '').trim();
+        const name_en = (gamNewNameEnInput.value || '').trim();
+
+        if (!key || !name_th || !name_en) {
+            showToast('กรุณากรอกข้อมูลพาทใหม่ให้ครบทุกช่อง', 'error');
+            return;
+        }
+
+        if (MASTER_GROUP_LIST.some(g => g.key === key)) {
+            showToast('ID Part (key) นี้มีอยู่แล้วในระบบ', 'error');
+            return;
+        }
+
+        const supa = getSupabaseClient();
+        if (!supa) {
+            showToast('Supabase not connected', 'error');
+            return;
+        }
+
+        const maxSortOrder = MASTER_GROUP_LIST.reduce((max, g) => Math.max(max, g.sort_order || 0), 0);
+
+        try {
+            const { error } = await supa.from('part_groups').insert({
+                key,
+                name_th,
+                name_en,
+                sort_order: maxSortOrder + 1
+            });
+
+            if (error) throw error;
+
+            showToast('เพิ่มพาทใหม่เข้าระบบสำเร็จ', 'success');
+            gamNewKeyInput.value = '';
+            gamNewNameThInput.value = '';
+            gamNewNameEnInput.value = '';
+            
+            // Refresh the master list and re-render the modal content
+            await loadPartGroups(supa);
+            openGroupAddModal();
+        } catch (err) {
+            console.error('Error adding new part group:', err);
+            showToast('เกิดข้อผิดพลาด: ' + err.message, 'error');
+        }
+    });
+  }
+
+  // Auto-generate key from English name in the 'add new part' form
+  if (gamNewNameEnInput && gamNewKeyInput) {
+      gamNewNameEnInput.addEventListener('input', () => {
+          gamNewKeyInput.value = sanitizeKey((gamNewNameEnInput.value || '').trim());
+      });
+  }
+
+  // Wire add SKU button (top) to open the existing add-SKU panel
+  // This is declared earlier, ensure no re-declaration
+  // const addSkuTopBtn = document.getElementById('btn-add-component');
+  if (addSkuTopBtn) {
+    addSkuTopBtn.addEventListener('click', () => {
+      // switch to the Add SKU panel
+      try { setActiveMenu(menuAddSku); showPanel(panelSku); } catch (e) { /* fallback */ }
+      // focus the name input
+      const nameEl = document.getElementById('admin-sku-name'); if (nameEl) nameEl.focus();
+    });
+  }
+});
+
+function fileToDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(fr.result);
+    fr.onerror = reject;
+    fr.readAsDataURL(file);
+  });
+}
+
+function sanitizeFileName(name) {
+  return String(name).replace(/[^A-Za-z0-9._-]/g, '-');
+}
+
+function sanitizeKey(name) {
+  // SKU keys / storage paths should be ASCII lowercase + digits, dot, underscore or hyphen
+  // replace any other character with '-' and trim leading/trailing '-'
+  const s = String(name).toLowerCase().replace(/[^a-z0-9._-]/g, '-');
+  // collapse multiple '-' to single and trim
+  const cleaned = s.replace(/-+/g, '-').replace(/^-+|-+$/g, '');
+  if (cleaned) return cleaned;
+  // fallback to generated key when input contains no ASCII chars
+  return 'sku-' + Date.now();
+}
+
+async function composePreviewPNG({ watermark = '' } = {}) {
+  // Load layer images in order to a hidden canvas
+  const order = ['bracelet','outer','inner','dial','hands','second'];
+  // pick first available layer as base size or default 1200x1200
+  let baseW = 1200, baseH = 1500;
+  const imgs = [];
+  for (const key of order) {
+    const it = PARTS[key] && PARTS[key][0];
+    const el = document.getElementById('layer-' + key);
+    const src = el && el.src ? el.src : (it ? (it.dataUrl || (IMG_BASE + it.file)) : null);
+    if (!src) { imgs.push(null); continue; }
+    const img = await loadImage(src);
+    imgs.push(img);
+    if (img.naturalWidth && img.naturalHeight) { baseW = img.naturalWidth; baseH = img.naturalHeight; }
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = baseW; canvas.height = baseH;
+  const ctx = canvas.getContext('2d');
+  const draw = (im) => { if (im) ctx.drawImage(im, 0, 0, baseW, baseH); };
+  // draw in order
+  imgs.forEach(draw);
+  // watermark
+  if (watermark) {
+    const pad = Math.round(baseW * 0.02);
+    ctx.save();
+    ctx.globalAlpha = 0.75;
+    ctx.fillStyle = 'white';
+    ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+    ctx.lineWidth = Math.max(2, Math.round(baseW * 0.0025));
+    const fs = Math.max(24, Math.round(baseW * 0.03));
+    ctx.font = `bold ${fs}px Manrope, Arial`;
+    const m = ctx.measureText(watermark);
+    const x = baseW - m.width - pad;
+    const y = baseH - pad;
+    ctx.strokeText(watermark, x, y);
+    ctx.fillText(watermark, x, y);
+    ctx.restore();
+  }
+  return canvas.toDataURL('image/png');
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const im = new Image();
+    im.onload = () => resolve(im);
+    im.onerror = reject;
+    im.crossOrigin = 'anonymous';
+    im.src = src;
+  });
+}

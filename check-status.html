@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ตรวจสอบสถานะระบบ</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background-color: #0069d9;
+        }
+        .code {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #e9ecef;
+            font-family: monospace;
+            overflow-x: auto;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 ตรวจสอบสถานะระบบ Watch Configurator</h1>
+        
+        <div id="supabase-status" class="status warning">
+            กำลังตรวจสอบการเชื่อมต่อ Supabase...
+        </div>
+        
+        <div id="localStorage-status" class="status warning">
+            กำลังตรวจสอบข้อมูลใน localStorage...
+        </div>
+        
+        <div id="catalog-status" class="status warning">
+            กำลังตรวจสอบ Catalog...
+        </div>
+        
+        <div id="actions">
+            <h2>🔧 การดำเนินการ:</h2>
+            <button onclick="checkSupabase()">ตรวจสอบ Supabase</button>
+            <button onclick="checkLocalStorage()">ตรวจสอบ localStorage</button>
+            <button onclick="exportData()">Export ข้อมูล</button>
+            <button onclick="clearData()">ล้างข้อมูล</button>
+            <button onclick="openMainApp()">เปิดแอปหลัก</button>
+        </div>
+        
+        <div id="results">
+            <h2>📊 ผลการตรวจสอบ:</h2>
+            <div id="results-content"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        // ตั้งค่า Supabase
+        window.SUPABASE_URL = 'https://orqyxamgukajopqdxpdg.supabase.co';
+        window.SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9ycXl4YW1ndWtham9wcWR4cGRnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA5OTk5MjksImV4cCI6MjA3NjU3NTkyOX0.f3S0gkVToR24Ceexjo73Yhzl2awaJAzjY_s7Balj26g';
+        
+        async function checkSupabase() {
+            const statusDiv = document.getElementById('supabase-status');
+            statusDiv.textContent = 'กำลังตรวจสอบ Supabase...';
+            statusDiv.className = 'status warning';
+            
+            try {
+                const hasKeys = !!(window.SUPABASE_URL && window.SUPABASE_ANON_KEY);
+                const hasSDK = !!(window.supabase && window.supabase.createClient);
+                
+                if (!hasKeys) {
+                    statusDiv.textContent = '❌ ไม่พบข้อมูลการเชื่อมต่อ Supabase';
+                    statusDiv.className = 'status error';
+                    return;
+                }
+                
+                if (!hasSDK) {
+                    statusDiv.textContent = '❌ ไม่สามารถโหลด Supabase SDK ได้';
+                    statusDiv.className = 'status error';
+                    return;
+                }
+                
+                const client = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+                
+                // ตรวจสอบตาราง skus
+                const { data: skus, error: skusError } = await client.from('skus').select('id,name').limit(5);
+                if (skusError) {
+                    statusDiv.textContent = `❌ ข้อผิดพลาดตาราง skus: ${skusError.message}`;
+                    statusDiv.className = 'status error';
+                    return;
+                }
+                
+                // ตรวจสอบตาราง assets
+                const { data: assets, error: assetsError } = await client.from('assets').select('sku_id,group_key,label').limit(5);
+                if (assetsError) {
+                    statusDiv.textContent = `❌ ข้อผิดพลาดตาราง assets: ${assetsError.message}`;
+                    statusDiv.className = 'status error';
+                    return;
+                }
+                
+                statusDiv.textContent = `✅ เชื่อมต่อ Supabase สำเร็จ! (SKUs: ${skus.length}, Assets: ${assets.length})`;
+                statusDiv.className = 'status success';
+                
+                updateResults('supabase', {
+                    connected: true,
+                    skus: skus.length,
+                    assets: assets.length,
+                    skuList: skus,
+                    assetList: assets
+                });
+                
+            } catch (err) {
+                statusDiv.textContent = `❌ เกิดข้อผิดพลาด: ${err.message}`;
+                statusDiv.className = 'status error';
+                updateResults('supabase', { connected: false, error: err.message });
+            }
+        }
+        
+        function checkLocalStorage() {
+            const statusDiv = document.getElementById('localStorage-status');
+            
+            try {
+                const catalog = localStorage.getItem('watchCatalog');
+                if (!catalog) {
+                    statusDiv.textContent = '❌ ไม่พบข้อมูลใน localStorage';
+                    statusDiv.className = 'status error';
+                    updateResults('localStorage', { hasData: false });
+                    return;
+                }
+                
+                const parsed = JSON.parse(catalog);
+                const skuCount = Object.keys(parsed).length;
+                
+                statusDiv.textContent = `✅ พบข้อมูลใน localStorage (${skuCount} SKUs)`;
+                statusDiv.className = 'status success';
+                
+                updateResults('localStorage', { 
+                    hasData: true, 
+                    skuCount: skuCount,
+                    skus: Object.keys(parsed)
+                });
+                
+            } catch (err) {
+                statusDiv.textContent = `❌ ข้อผิดพลาด localStorage: ${err.message}`;
+                statusDiv.className = 'status error';
+                updateResults('localStorage', { hasData: false, error: err.message });
+            }
+        }
+        
+        function checkCatalog() {
+            const statusDiv = document.getElementById('catalog-status');
+            
+            try {
+                // ตรวจสอบข้อมูลที่โหลดในหน้าเว็บ
+                if (window.CATALOG) {
+                    const skuCount = Object.keys(window.CATALOG).length;
+                    statusDiv.textContent = `✅ Catalog โหลดแล้ว (${skuCount} SKUs)`;
+                    statusDiv.className = 'status success';
+                    updateResults('catalog', { loaded: true, skuCount: skuCount });
+                } else {
+                    statusDiv.textContent = '⚠️ Catalog ยังไม่โหลด';
+                    statusDiv.className = 'status warning';
+                    updateResults('catalog', { loaded: false });
+                }
+            } catch (err) {
+                statusDiv.textContent = `❌ ข้อผิดพลาด: ${err.message}`;
+                statusDiv.className = 'status error';
+                updateResults('catalog', { loaded: false, error: err.message });
+            }
+        }
+        
+        function updateResults(type, data) {
+            const resultsContent = document.getElementById('results-content');
+            const existing = resultsContent.innerHTML;
+            
+            let newContent = `<div class="status info"><strong>${type}:</strong> `;
+            if (data.error) {
+                newContent += `❌ ${data.error}`;
+            } else if (data.connected || data.hasData || data.loaded) {
+                newContent += `✅ ทำงานปกติ`;
+                if (data.skuCount) newContent += ` (${data.skuCount} SKUs)`;
+                if (data.skus) newContent += ` - ${data.skus.join(', ')}`;
+            } else {
+                newContent += `⚠️ ไม่พร้อมใช้งาน`;
+            }
+            newContent += `</div>`;
+            
+            resultsContent.innerHTML = existing + newContent;
+        }
+        
+        function exportData() {
+            try {
+                const catalog = localStorage.getItem('watchCatalog');
+                if (!catalog) {
+                    alert('ไม่พบข้อมูลใน localStorage');
+                    return;
+                }
+                
+                const blob = new Blob([catalog], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'watch-catalog-backup.json';
+                a.click();
+                URL.revokeObjectURL(url);
+                
+                alert('Export ข้อมูลสำเร็จ!');
+            } catch (err) {
+                alert('Export ไม่สำเร็จ: ' + err.message);
+            }
+        }
+        
+        function clearData() {
+            if (confirm('คุณแน่ใจหรือไม่ที่จะล้างข้อมูลทั้งหมด?')) {
+                localStorage.removeItem('watchCatalog');
+                alert('ล้างข้อมูลเรียบร้อยแล้ว');
+                checkLocalStorage();
+            }
+        }
+        
+        function openMainApp() {
+            window.open('./index.html', '_blank');
+        }
+        
+        // ตรวจสอบอัตโนมัติเมื่อโหลดหน้า
+        window.addEventListener('load', function() {
+            checkSupabase();
+            checkLocalStorage();
+            checkCatalog();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,63 @@
+  MASTER_GROUP_LIST.forEach(groupInfo => {
+    const key = groupInfo.key;
+    setLayerFromItem(`layer-${key}`, pickItem(key));
+  });
+  
+  // After changing images, resync heights when images load
+  queueHeightSyncOnImages();
+  heightSyncQueued = true;
+  const layers = [
+    "layer-bracelet",
+    "layer-outer",
+    "layer-inner",
+    "layer-dial",
+    "layer-hands",
+  const layers = [
+    "layer-bracelet",
+    "layer-outer",
+    "layer-inner",
+    "layer-dial",
+    "layer-hands",
+    "layer-second"
+    "layer-bracelet",
+    "layer-outer",
+    "layer-inner",
+    "layer-dial",
+    "layer-hands",
+    "layer-second"
+  ]
+    "layer-outer",
+    "layer-inner",
+    "layer-dial",
+    "layer-hands",
+    "layer-second"
+  ]
+    .map((id) => $(id))
+    "layer-inner",
+    "layer-dial",
+    "layer-hands",
+    "layer-second"
+  ]
+    .map((id) => $(id))
+    .filter(Boolean);
+    "layer-dial",
+    "layer-hands",
+    "layer-second"
+  ]
+    .map((id) => $(id))
+    .filter(Boolean);
+  let remaining = layers.length;
+  MASTER_GROUP_LIST.forEach(groupInfo => {
+    const img = document.createElement('img');
+    img.id = `layer-${groupInfo.key}`;
+    img.alt = groupInfo.name_en || groupInfo.key;
+    img.className = 'absolute inset-0 w-full h-full object-contain';
+    img.style.visibility = 'hidden'; // initially hidden
+    zoomInner.appendChild(img);
+  for (const key of order) {
+    const it = PARTS[key] && PARTS[key][0];
+    const el = document.getElementById('layer-' + key);
+    const src = el && el.src ? el.src : (it ? (it.dataUrl || (IMG_BASE + it.file)) : null);
+    if (!src) { imgs.push(null); continue; }
+    const img = await loadImage(src);
+    imgs.push(img);

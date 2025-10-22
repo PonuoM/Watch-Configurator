@@ -1,0 +1,190 @@
+let heightSyncQueued = false;
+let zoom = 1; // default: 100%
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 2;
+const ZOOM_STEP = 0.1;
+let zoom = 1; // default: 100%
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 2;
+const ZOOM_STEP = 0.1;
+function syncHeights() {
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 2;
+const ZOOM_STEP = 0.1;
+function syncHeights() {
+  const previewCard = document.querySelector("#preview > div");
+const MAX_ZOOM = 2;
+const ZOOM_STEP = 0.1;
+function syncHeights() {
+  const previewCard = document.querySelector("#preview > div");
+  const panel = document.getElementById("controls-panel");
+function createDynamicLayers() {
+  const zoomInner = document.getElementById('zoom-inner');
+  if (!zoomInner) return;
+  
+  // Clear existing layers
+  const zoomInner = document.getElementById('zoom-inner');
+  if (!zoomInner) return;
+  
+  // Clear existing layers
+  zoomInner.innerHTML = '';
+  // Clear existing layers
+  zoomInner.innerHTML = '';
+  
+  // Create layers in order from MASTER_GROUP_LIST
+  MASTER_GROUP_LIST.forEach(groupInfo => {
+    img.style.visibility = 'hidden'; // initially hidden
+    zoomInner.appendChild(img);
+  });
+}
+
+
+  // Zoom controls (desktop)
+  const zoomInner = $("zoom-inner");
+  const zoomInBtn = $("zoom-in");
+  const zoomOutBtn = $("zoom-out");
+  // Zoom controls (desktop)
+  const zoomInner = $("zoom-inner");
+  const zoomInBtn = $("zoom-in");
+  const zoomOutBtn = $("zoom-out");
+  const zoomResetBtn = $("zoom-reset");
+  const zoomInner = $("zoom-inner");
+  const zoomInBtn = $("zoom-in");
+  const zoomOutBtn = $("zoom-out");
+  const zoomResetBtn = $("zoom-reset");
+  function applyZoom() {
+  const zoomInBtn = $("zoom-in");
+  const zoomOutBtn = $("zoom-out");
+  const zoomResetBtn = $("zoom-reset");
+  function applyZoom() {
+    if (!zoomInner) return;
+  const zoomOutBtn = $("zoom-out");
+  const zoomResetBtn = $("zoom-reset");
+  function applyZoom() {
+    if (!zoomInner) return;
+    // Keep horizontally centered but align to the top vertically
+  const zoomResetBtn = $("zoom-reset");
+  function applyZoom() {
+    if (!zoomInner) return;
+    // Keep horizontally centered but align to the top vertically
+    zoomInner.style.transformOrigin = 'center top';
+  function applyZoom() {
+    if (!zoomInner) return;
+    // Keep horizontally centered but align to the top vertically
+    zoomInner.style.transformOrigin = 'center top';
+    zoomInner.style.transform = `scale(${zoom})`;
+    // Keep horizontally centered but align to the top vertically
+    zoomInner.style.transformOrigin = 'center top';
+    zoomInner.style.transform = `scale(${zoom})`;
+    if (zoomOutBtn) zoomOutBtn.disabled = zoom <= MIN_ZOOM + 1e-6;
+    if (zoomInBtn) zoomInBtn.disabled = zoom >= MAX_ZOOM - 1e-6;
+    zoomInner.style.transformOrigin = 'center top';
+    zoomInner.style.transform = `scale(${zoom})`;
+    if (zoomOutBtn) zoomOutBtn.disabled = zoom <= MIN_ZOOM + 1e-6;
+    if (zoomInBtn) zoomInBtn.disabled = zoom >= MAX_ZOOM - 1e-6;
+    if (zoomResetBtn) {
+    zoomInner.style.transform = `scale(${zoom})`;
+    if (zoomOutBtn) zoomOutBtn.disabled = zoom <= MIN_ZOOM + 1e-6;
+    if (zoomInBtn) zoomInBtn.disabled = zoom >= MAX_ZOOM - 1e-6;
+    if (zoomResetBtn) {
+      const pct = Math.round(zoom * 100);
+    if (zoomOutBtn) zoomOutBtn.disabled = zoom <= MIN_ZOOM + 1e-6;
+    if (zoomInBtn) zoomInBtn.disabled = zoom >= MAX_ZOOM - 1e-6;
+    if (zoomResetBtn) {
+      const pct = Math.round(zoom * 100);
+      zoomResetBtn.textContent = `${pct}%`;
+    if (zoomInBtn) zoomInBtn.disabled = zoom >= MAX_ZOOM - 1e-6;
+    if (zoomResetBtn) {
+      const pct = Math.round(zoom * 100);
+      zoomResetBtn.textContent = `${pct}%`;
+      zoomResetBtn.title = 'Reset zoom to fit';
+    if (zoomResetBtn) {
+      const pct = Math.round(zoom * 100);
+      zoomResetBtn.textContent = `${pct}%`;
+      zoomResetBtn.title = 'Reset zoom to fit';
+    }
+      const pct = Math.round(zoom * 100);
+      zoomResetBtn.textContent = `${pct}%`;
+      zoomResetBtn.title = 'Reset zoom to fit';
+    }
+  }
+      zoomResetBtn.textContent = `${pct}%`;
+      zoomResetBtn.title = 'Reset zoom to fit';
+    }
+  }
+  // expose helpers so other functions can reset to fit
+  // expose helpers so other functions can reset to fit
+  window.__applyZoom = applyZoom;
+  window.__resetZoomToFit = function() { zoom = 1; applyZoom(); };
+  if (zoomInBtn) {
+    zoomInBtn.addEventListener('click', () => {
+  window.__applyZoom = applyZoom;
+  window.__resetZoomToFit = function() { zoom = 1; applyZoom(); };
+  if (zoomInBtn) {
+    zoomInBtn.addEventListener('click', () => {
+      zoom = Math.min(MAX_ZOOM, Math.round((zoom + ZOOM_STEP) * 100) / 100);
+  window.__resetZoomToFit = function() { zoom = 1; applyZoom(); };
+  if (zoomInBtn) {
+    zoomInBtn.addEventListener('click', () => {
+      zoom = Math.min(MAX_ZOOM, Math.round((zoom + ZOOM_STEP) * 100) / 100);
+      applyZoom();
+  if (zoomInBtn) {
+    zoomInBtn.addEventListener('click', () => {
+      zoom = Math.min(MAX_ZOOM, Math.round((zoom + ZOOM_STEP) * 100) / 100);
+      applyZoom();
+    });
+    zoomInBtn.addEventListener('click', () => {
+      zoom = Math.min(MAX_ZOOM, Math.round((zoom + ZOOM_STEP) * 100) / 100);
+      applyZoom();
+    });
+  }
+      zoom = Math.min(MAX_ZOOM, Math.round((zoom + ZOOM_STEP) * 100) / 100);
+      applyZoom();
+    });
+  }
+  if (zoomOutBtn) {
+  }
+  if (zoomOutBtn) {
+    zoomOutBtn.addEventListener('click', () => {
+      zoom = Math.max(MIN_ZOOM, Math.round((zoom - ZOOM_STEP) * 100) / 100);
+      applyZoom();
+  if (zoomOutBtn) {
+    zoomOutBtn.addEventListener('click', () => {
+      zoom = Math.max(MIN_ZOOM, Math.round((zoom - ZOOM_STEP) * 100) / 100);
+      applyZoom();
+    });
+    zoomOutBtn.addEventListener('click', () => {
+      zoom = Math.max(MIN_ZOOM, Math.round((zoom - ZOOM_STEP) * 100) / 100);
+      applyZoom();
+    });
+  }
+      zoom = Math.max(MIN_ZOOM, Math.round((zoom - ZOOM_STEP) * 100) / 100);
+      applyZoom();
+    });
+  }
+  if (zoomResetBtn) {
+  }
+  if (zoomResetBtn) {
+    zoomResetBtn.addEventListener('click', () => {
+      zoom = 1;
+      applyZoom();
+  if (zoomResetBtn) {
+    zoomResetBtn.addEventListener('click', () => {
+      zoom = 1;
+      applyZoom();
+    });
+    zoomResetBtn.addEventListener('click', () => {
+      zoom = 1;
+      applyZoom();
+    });
+  }
+      zoom = 1;
+      applyZoom();
+    });
+  }
+  applyZoom();
+  }
+  applyZoom();
+
+  // Forward wheel/trackpad scroll on preview to the left controls panel
+  const previewBox = $("preview-box");

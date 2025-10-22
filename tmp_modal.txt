@@ -1,0 +1,483 @@
+    card.addEventListener("dblclick", () => openModal(groupKey, idx));
+  });
+}
+
+// Render a compact horizontal row (mobile)
+function renderMobileRow(rowId, items, groupKey, state) {
+  const row = $(rowId);
+  if (!row) return;
+  row.innerHTML = "";
+  // Defensive: ensure items is an array before iterating (can be undefined when SKU lacks a group)
+  const list = Array.isArray(items) ? items : [];
+  list.forEach((it, idx) => {
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "thumb";
+    const img = document.createElement("img");
+    img.src = it.dataUrl ? it.dataUrl : IMG_BASE + it.file;
+    img.alt = it.label;
+    img.draggable = false;
+    const label = document.createElement("div");
+    label.className = "label";
+    label.textContent = it.label;
+    if (state[groupKey] === idx) card.classList.add("selected");
+    card.appendChild(img);
+    card.appendChild(label);
+    row.appendChild(card);
+    card.addEventListener("click", () => {
+      state[groupKey] = idx;
+      applySelections(state);
+      renderMobileRow(rowId, items, groupKey, state);
+    });
+    card.addEventListener("dblclick", () => openModal(groupKey, idx));
+  });
+}
+
+function renderGroupSelection(gridId, selectedIdx) {
+  const grid = $(gridId);
+  if (!grid) return;
+  [...grid.children].forEach((el, i) => {
+    el.classList.toggle("selected", i === selectedIdx);
+  });
+}
+
+function applySelections(state) {
+  // Helper to safely pick an item from PARTS for a given key using the state's index
+  function pickItem(key) {
+    try {
+      const arr = PARTS && PARTS[key];
+      if (!arr || !Array.isArray(arr) || arr.length === 0) return null;
+      const idx = state ? state[key] : undefined;
+      if (typeof idx === 'number') return arr[idx] || null;
+      const parsed = parseInt(idx, 10);
+      if (!Number.isNaN(parsed)) return arr[parsed] || null;
+      return arr[0] || null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Apply selections dynamically for all groups in MASTER_GROUP_LIST
+  MASTER_GROUP_LIST.forEach(groupInfo => {
+    const key = groupInfo.key;
+    setLayerFromItem(`layer-${key}`, pickItem(key));
+  });
+  
+  // After changing images, resync heights when images load
+  queueHeightSyncOnImages();
+}
+
+function randomizeState() {
+  const randIdx = (arr) => Math.floor(Math.random() * arr.length);
+  return {
+    dial: randIdx(PARTS.dial),
+    hands: randIdx(PARTS.hands),
+    second: randIdx(PARTS.second),
+    outer: randIdx(PARTS.outer),
+    inner: randIdx(PARTS.inner),
+    bracelet: randIdx(PARTS.bracelet)
+  };
+}
+
+// Modal helpers
+let modalContext = { groupKey: null, index: null };
+let heightSyncQueued = false;
+let zoom = 1; // default: 100%
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 2;
+const ZOOM_STEP = 0.1;
+function syncHeights() {
+  const previewCard = document.querySelector("#preview > div");
+  const panel = document.getElementById("controls-panel");
+  if (!previewCard || !panel) return;
+  if (window.matchMedia("(min-width: 768px)").matches) {
+    const rect = previewCard.getBoundingClientRect();
+    panel.style.maxHeight = "";
+    panel.style.height = Math.floor(rect.height) + "px";
+  } else {
+    panel.style.height = "";
+    panel.style.maxHeight = "";
+  }
+}
+
+// Simple toast helper (small non-blocking messages)
+function showToast(msg, type = 'info', timeout = 2500) {
+  let wrap = document.getElementById('toast-wrap');
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.id = 'toast-wrap';
+    wrap.style.position = 'fixed';
+    wrap.style.right = '16px';
+    wrap.style.top = '16px';
+    wrap.style.zIndex = 60;
+    document.body.appendChild(wrap);
+  }
+  const el = document.createElement('div');
+  el.textContent = msg;
+  el.className = 'px-3 py-2 rounded-md text-sm text-white';
+  el.style.marginTop = '8px';
+  el.style.boxShadow = '0 4px 12px rgba(0,0,0,0.12)';
+  if (type === 'success') el.style.background = '#059669';
+  else if (type === 'error') el.style.background = '#dc2626';
+  else el.style.background = '#374151';
+  wrap.appendChild(el);
+  setTimeout(() => { el.style.transition = 'opacity 300ms, transform 300ms'; el.style.opacity = '0'; el.style.transform = 'translateY(-6px)'; setTimeout(() => el.remove(), 350); }, timeout);
+}
+
+function applyHeaderHeightVar() {
+  const header = document.querySelector('header');
+  const h = header ? header.offsetHeight : 0;
+  document.documentElement.style.setProperty('--header-h', h + 'px');
+}
+function queueHeightSyncOnImages() {
+  if (heightSyncQueued) return;
+  heightSyncQueued = true;
+  const layers = [
+    "layer-bracelet",
+    "layer-outer",
+    "layer-inner",
+    "layer-dial",
+    "layer-hands",
+    "layer-second"
+  ]
+    .map((id) => $(id))
+    .filter(Boolean);
+  let remaining = layers.length;
+  const done = () => {
+    remaining--;
+    if (remaining <= 0) {
+      heightSyncQueued = false;
+      syncHeights();
+    }
+  };
+  layers.forEach((img) => {
+    if (!img.complete) {
+      img.addEventListener("load", done, { once: true });
+      img.addEventListener("error", done, { once: true });
+    } else {
+      done();
+    }
+  });
+}
+    card.addEventListener("dblclick", () => openModal(groupKey, idx));
+  });
+}
+
+function renderGroupSelection(gridId, selectedIdx) {
+  const grid = $(gridId);
+  if (!grid) return;
+  [...grid.children].forEach((el, i) => {
+    el.classList.toggle("selected", i === selectedIdx);
+  });
+}
+
+function applySelections(state) {
+  // Helper to safely pick an item from PARTS for a given key using the state's index
+  function pickItem(key) {
+    try {
+      const arr = PARTS && PARTS[key];
+      if (!arr || !Array.isArray(arr) || arr.length === 0) return null;
+      const idx = state ? state[key] : undefined;
+      if (typeof idx === 'number') return arr[idx] || null;
+      const parsed = parseInt(idx, 10);
+      if (!Number.isNaN(parsed)) return arr[parsed] || null;
+      return arr[0] || null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Apply selections dynamically for all groups in MASTER_GROUP_LIST
+  MASTER_GROUP_LIST.forEach(groupInfo => {
+    const key = groupInfo.key;
+    setLayerFromItem(`layer-${key}`, pickItem(key));
+  });
+  
+  // After changing images, resync heights when images load
+  queueHeightSyncOnImages();
+}
+
+function randomizeState() {
+  const randIdx = (arr) => Math.floor(Math.random() * arr.length);
+  return {
+    dial: randIdx(PARTS.dial),
+    hands: randIdx(PARTS.hands),
+    second: randIdx(PARTS.second),
+    outer: randIdx(PARTS.outer),
+    inner: randIdx(PARTS.inner),
+    bracelet: randIdx(PARTS.bracelet)
+  };
+}
+
+// Modal helpers
+let modalContext = { groupKey: null, index: null };
+let heightSyncQueued = false;
+let zoom = 1; // default: 100%
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 2;
+const ZOOM_STEP = 0.1;
+function syncHeights() {
+  const previewCard = document.querySelector("#preview > div");
+  const panel = document.getElementById("controls-panel");
+  if (!previewCard || !panel) return;
+  if (window.matchMedia("(min-width: 768px)").matches) {
+    const rect = previewCard.getBoundingClientRect();
+    panel.style.maxHeight = "";
+    panel.style.height = Math.floor(rect.height) + "px";
+  } else {
+    panel.style.height = "";
+    panel.style.maxHeight = "";
+  }
+}
+
+// Simple toast helper (small non-blocking messages)
+function showToast(msg, type = 'info', timeout = 2500) {
+  let wrap = document.getElementById('toast-wrap');
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.id = 'toast-wrap';
+    wrap.style.position = 'fixed';
+    wrap.style.right = '16px';
+    wrap.style.top = '16px';
+    wrap.style.zIndex = 60;
+    document.body.appendChild(wrap);
+  }
+  const el = document.createElement('div');
+  el.textContent = msg;
+  el.className = 'px-3 py-2 rounded-md text-sm text-white';
+  el.style.marginTop = '8px';
+  el.style.boxShadow = '0 4px 12px rgba(0,0,0,0.12)';
+  if (type === 'success') el.style.background = '#059669';
+  else if (type === 'error') el.style.background = '#dc2626';
+  else el.style.background = '#374151';
+  wrap.appendChild(el);
+  setTimeout(() => { el.style.transition = 'opacity 300ms, transform 300ms'; el.style.opacity = '0'; el.style.transform = 'translateY(-6px)'; setTimeout(() => el.remove(), 350); }, timeout);
+}
+
+function applyHeaderHeightVar() {
+  const header = document.querySelector('header');
+  const h = header ? header.offsetHeight : 0;
+  document.documentElement.style.setProperty('--header-h', h + 'px');
+}
+function queueHeightSyncOnImages() {
+  if (heightSyncQueued) return;
+  heightSyncQueued = true;
+  const layers = [
+    "layer-bracelet",
+    "layer-outer",
+    "layer-inner",
+    "layer-dial",
+    "layer-hands",
+    "layer-second"
+  ]
+    .map((id) => $(id))
+    .filter(Boolean);
+  let remaining = layers.length;
+  const done = () => {
+    remaining--;
+    if (remaining <= 0) {
+      heightSyncQueued = false;
+      syncHeights();
+    }
+  };
+  layers.forEach((img) => {
+    if (!img.complete) {
+      img.addEventListener("load", done, { once: true });
+      img.addEventListener("error", done, { once: true });
+    } else {
+      done();
+    }
+  });
+}
+function openModal(groupKey, idx) {
+  const it = PARTS[groupKey][idx];
+  modalContext = { groupKey, index: idx };
+  const src = it ? (it.dataUrl ? it.dataUrl : (it.file ? IMG_BASE + it.file : "")) : "";
+  $("modal-img").src = src;
+  $("modal-caption").textContent = it.label;
+  const m = $("image-modal");
+  m.classList.remove("hidden");
+  m.classList.add("flex");
+}
+function closeModal() {
+  const m = $("image-modal");
+  m.classList.add("hidden");
+  m.classList.remove("flex");
+}
+
+// Function to create dynamic layer images based on MASTER_GROUP_LIST
+function createDynamicLayers() {
+  const zoomInner = document.getElementById('zoom-inner');
+  if (!zoomInner) return;
+  
+  // Clear existing layers
+  zoomInner.innerHTML = '';
+  
+  // Create layers in order from MASTER_GROUP_LIST
+  MASTER_GROUP_LIST.forEach(groupInfo => {
+    const img = document.createElement('img');
+    img.id = `layer-${groupInfo.key}`;
+    img.alt = groupInfo.name_en || groupInfo.key;
+    img.className = 'absolute inset-0 w-full h-full object-contain';
+    img.style.visibility = 'hidden'; // initially hidden
+function openModal(groupKey, idx) {
+  const it = PARTS[groupKey][idx];
+  modalContext = { groupKey, index: idx };
+  const src = it ? (it.dataUrl ? it.dataUrl : (it.file ? IMG_BASE + it.file : "")) : "";
+  $("modal-img").src = src;
+  $("modal-caption").textContent = it.label;
+  const m = $("image-modal");
+  m.classList.remove("hidden");
+  m.classList.add("flex");
+}
+function closeModal() {
+  const m = $("image-modal");
+  m.classList.add("hidden");
+  m.classList.remove("flex");
+}
+
+// Function to create dynamic layer images based on MASTER_GROUP_LIST
+function createDynamicLayers() {
+  const zoomInner = document.getElementById('zoom-inner');
+  if (!zoomInner) return;
+  
+  // Clear existing layers
+  zoomInner.innerHTML = '';
+  
+  // Create layers in order from MASTER_GROUP_LIST
+  MASTER_GROUP_LIST.forEach(groupInfo => {
+    const img = document.createElement('img');
+    img.id = `layer-${groupInfo.key}`;
+    img.alt = groupInfo.name_en || groupInfo.key;
+    img.className = 'absolute inset-0 w-full h-full object-contain';
+    img.style.visibility = 'hidden'; // initially hidden
+    zoomInner.appendChild(img);
+  });
+}
+
+// Function to create dynamic grids based on MASTER_GROUP_LIST and current SKU parts
+function createDynamicGrids() {
+  const controlsPanel = document.getElementById('controls-panel');
+  if (!controlsPanel) return;
+  
+  // Find the buttons container to preserve it
+  const buttonsContainer = controlsPanel.querySelector('.flex.gap-3');
+  
+  // Clear everything except the first paragraph and buttons
+  const firstP = controlsPanel.querySelector('p');
+  controlsPanel.innerHTML = '';
+  if (firstP) controlsPanel.appendChild(firstP);
+  
+  // Get groups that exist in current SKU
+  const currentParts = PARTS || {};
+  const availableGroups = MASTER_GROUP_LIST.filter(g => currentParts[g.key] && currentParts[g.key].length > 0);
+  
+  // Create grid for each available group
+  availableGroups.forEach(groupInfo => {
+    const key = groupInfo.key;
+    
+    // Create title
+    const title = document.createElement('h3');
+    title.className = 'part-title';
+    title.textContent = `${groupInfo.name_th} / ${groupInfo.name_en}`;
+    controlsPanel.appendChild(title);
+    
+    // Create grid
+    const grid = document.createElement('div');
+    grid.id = `grid-${key}`;
+    grid.className = 'part-grid';
+    controlsPanel.appendChild(grid);
+  });
+  
+  // Re-append buttons container
+  if (buttonsContainer) controlsPanel.appendChild(buttonsContainer);
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
+  // show loading overlay until catalog and initial images are loaded
+  showLoading(true);
+  await maybeLoadCatalogFromSupabase();
+  
+  // Create dynamic layers and grids after loading catalog
+  createDynamicLayers();
+  createDynamicGrids();
+  
+  // preload images for the initial SKU to avoid layout shift
+  try { await preloadImagesForSKU(currentSKU, 4000); } catch (e) { /* ignore */ }
+  showLoading(false);
+  // Set CSS var for header height so main can fit exactly 1 screen
+  applyHeaderHeightVar();
+  window.addEventListener('resize', applyHeaderHeightVar);
+  // Default state (index 0) - create dynamically from current PARTS
+  const state = {};
+  Object.keys(PARTS || {}).forEach(key => {
+    if (key !== '__name') state[key] = 0;
+  });
+
+  // Render grids dynamically for all groups that exist in current SKU
+  Object.keys(PARTS || {}).forEach(key => {
+    if (key === '__name') return;
+    const items = PARTS[key];
+    if (Array.isArray(items) && items.length > 0) {
+      renderGrid(`grid-${key}`, items, key, state);
+      // Mobile overlay grids (share same data/state)
+      renderGrid(`mgrid-${key}`, items, key, state);
+    }
+  });
+
+  // Mobile bottom carousel logic (only if elements exist)
+  const mTitle = $("m-title");
+  const mSubtitle = $("m-subtitle");
+  const mPrev = $("m-prev");
+  const mNext = $("m-next");
+  const mRow = $("m-row");
+  const mPage = $("m-page");
+  if (mPrev && mNext) {
+    // Show all watch parts on mobile stepper
+    const groups = [
+      { key: "dial", title: "Dial", subtitle: "Choose a dial design" },
+      { key: "hands", title: "Hands", subtitle: "Pick hour/minute hands" },
+      { key: "second", title: "Second Hand", subtitle: "Pick the second hand" },
+      { key: "outer", title: "Outer Bezel", subtitle: "Select the outer bezel" },
+      { key: "inner", title: "Inner Ring", subtitle: "Select the inner ring" },
+      { key: "bracelet", title: "Bracelet", subtitle: "Choose a bracelet" }
+    ];
+    let page = 0;
+    function updateNavState() {
+      if (mPrev) mPrev.disabled = page <= 0;
+      if (mNext) mNext.disabled = page >= groups.length - 1;
+      if (mPage) mPage.textContent = `${page + 1}/${groups.length}`;
+    }
+    function setPage(p) {
+      // clamp to ends (no wrap)
+      page = Math.max(0, Math.min(p, groups.length - 1));
+      const g = groups[page];
+      if (mTitle) mTitle.textContent = g.title;
+      if (mSubtitle) mSubtitle.textContent = g.subtitle;
+      const items = PARTS[g.key];
+      if (mRow) renderMobileRow("m-row", items, g.key, state);
+      // Ensure row scrolls back to start on change
+      if (mRow) mRow.scrollTo({ left: 0, behavior: "smooth" });
+      updateNavState();
+    }
+    setPage(0);
+    const prevHandler = (e) => {
+      if (e && e.preventDefault) e.preventDefault();
+      setPage(page - 1);
+    };
+    const nextHandler = (e) => {
+      if (e && e.preventDefault) e.preventDefault();
+      setPage(page + 1);
+    };
+    mPrev.addEventListener("click", prevHandler);
+    mNext.addEventListener("click", nextHandler);
+  }
+
+  applySelections(state);
+
+  syncHeights();
+  window.addEventListener("resize", syncHeights);
+  queueHeightSyncOnImages();
+
+  // Buttons
+  const btnReset = $("btn-reset");

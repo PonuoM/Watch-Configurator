@@ -1,0 +1,214 @@
+/* admin.css - Luxury Theme */
+
+:root {
+  --background-color: #f8f9fa;
+  --sidebar-bg: #ffffff;
+  --card-bg: #ffffff;
+  --text-primary: #212529;
+  --text-secondary: #6c757d;
+  --border-color: #dee2e6;
+  --accent-color: #bfa888; /* Muted Gold */
+  --dark-color: #343a40;
+}
+
+body.admin-dashboard {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+  font-family: 'Inter', 'Kanit', sans-serif;
+  background-color: var(--background-color);
+  color: var(--text-primary);
+}
+
+/* Ensure the main area fills remaining space next to the sidebar */
+.main-content {
+  flex: 1 1 auto;
+  min-width: 0; /* allow children to shrink/expand properly */
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar {
+  width: 260px;
+  background-color: var(--sidebar-bg);
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem;
+  transition: width 0.3s ease;
+  border-right: 1px solid var(--border-color);
+  box-shadow: 2px 0 10px rgba(0,0,0,0.02);
+}
+
+.sidebar-header {
+  margin-bottom: 2rem;
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 1.25rem;
+}
+
+.nav-button {
+  display: block;
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border-radius: 0.5rem;
+  text-align: left;
+  font-weight: 500;
+  transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+  border: none;
+  color: var(--text-secondary);
+  position: relative;
+}
+
+.nav-button:hover {
+  background-color: #f8f9fa;
+  color: var(--text-primary);
+}
+
+.nav-button.active {
+  background-color: transparent;
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.nav-button.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 24px;
+  background-color: var(--accent-color);
+  border-radius: 0 4px 4px 0;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 2rem;
+  background-color: var(--card-bg);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.header-title h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.content-area {
+  padding: 2rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  /* stretch children to full width instead of centering */
+  align-items: stretch;
+}
+
+.content-panel {
+  width: 100%;
+  /* Fill available width; remove hard max-width that caused right gap */
+  max-width: none;
+  background-color: var(--card-bg);
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 25px rgba(0,0,0,0.05);
+  border: 1px solid var(--border-color);
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th, .data-table td {
+  padding: 1.25rem 1.5rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.data-table th {
+  font-weight: 600;
+  background-color: transparent;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+}
+
+.data-table tbody tr {
+  transition: background-color 0.2s ease;
+}
+
+.data-table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+.btn {
+  padding: 0.6rem 1.25rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  letter-spacing: 0.2px;
+}
+
+.btn-primary {
+  background-color: var(--dark-color);
+  color: #ffffff;
+}
+
+.btn-primary:hover {
+  background-color: #212529;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  transform: translateY(-2px);
+}
+
+.btn-secondary {
+  background-color: #ffffff;
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+
+.btn-secondary:hover {
+  background-color: #f8f9fa;
+  border-color: #adb5bd;
+}
+
+.btn-text-danger {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-weight: 600;
+  transition: color 0.2s ease;
+  padding: 0.6rem 0;
+}
+
+.btn-text-danger:hover {
+  color: #dc3545; /* A standard danger red */
+}
+
+.btn-dark {
+  background-color: var(--dark-color);
+  color: #ffffff;
+  border-color: var(--dark-color);
+}
+
+.btn-dark:hover {
+  background-color: #212529;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  transform: translateY(-2px);
+}

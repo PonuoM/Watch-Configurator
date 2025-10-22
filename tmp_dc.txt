@@ -1,0 +1,121 @@
+document.addEventListener("DOMContentLoaded", async () => {
+  // show loading overlay until catalog and initial images are loaded
+  showLoading(true);
+  await maybeLoadCatalogFromSupabase();
+  
+  // Create dynamic layers and grids after loading catalog
+  createDynamicLayers();
+  createDynamicGrids();
+  
+  // preload images for the initial SKU to avoid layout shift
+  try { await preloadImagesForSKU(currentSKU, 4000); } catch (e) { /* ignore */ }
+  showLoading(false);
+  // Set CSS var for header height so main can fit exactly 1 screen
+  applyHeaderHeightVar();
+  window.addEventListener('resize', applyHeaderHeightVar);
+  // Default state (index 0) - create dynamically from current PARTS
+  const state = {};
+  Object.keys(PARTS || {}).forEach(key => {
+    if (key !== '__name') state[key] = 0;
+  });
+
+  // Render grids dynamically for all groups that exist in current SKU
+  Object.keys(PARTS || {}).forEach(key => {
+    if (key === '__name') return;
+    const items = PARTS[key];
+    if (Array.isArray(items) && items.length > 0) {
+      renderGrid(`grid-${key}`, items, key, state);
+      // Mobile overlay grids (share same data/state)
+      renderGrid(`mgrid-${key}`, items, key, state);
+    }
+  });
+
+  // Mobile bottom carousel logic (only if elements exist)
+  const mTitle = $("m-title");
+  const mSubtitle = $("m-subtitle");
+  const mPrev = $("m-prev");
+  const mNext = $("m-next");
+  const mRow = $("m-row");
+  const mPage = $("m-page");
+  if (mPrev && mNext) {
+    // Show all watch parts on mobile stepper
+    const groups = [
+      { key: "dial", title: "Dial", subtitle: "Choose a dial design" },
+      { key: "hands", title: "Hands", subtitle: "Pick hour/minute hands" },
+      { key: "second", title: "Second Hand", subtitle: "Pick the second hand" },
+      { key: "outer", title: "Outer Bezel", subtitle: "Select the outer bezel" },
+      { key: "inner", title: "Inner Ring", subtitle: "Select the inner ring" },
+      { key: "bracelet", title: "Bracelet", subtitle: "Choose a bracelet" }
+    ];
+    let page = 0;
+    function updateNavState() {
+      if (mPrev) mPrev.disabled = page <= 0;
+      if (mNext) mNext.disabled = page >= groups.length - 1;
+      if (mPage) mPage.textContent = `${page + 1}/${groups.length}`;
+    }
+    function setPage(p) {
+      // clamp to ends (no wrap)
+      page = Math.max(0, Math.min(p, groups.length - 1));
+      const g = groups[page];
+      if (mTitle) mTitle.textContent = g.title;
+      if (mSubtitle) mSubtitle.textContent = g.subtitle;
+      const items = PARTS[g.key];
+      if (mRow) renderMobileRow("m-row", items, g.key, state);
+      // Ensure row scrolls back to start on change
+      if (mRow) mRow.scrollTo({ left: 0, behavior: "smooth" });
+      updateNavState();
+    }
+    setPage(0);
+    const prevHandler = (e) => {
+      if (e && e.preventDefault) e.preventDefault();
+      setPage(page - 1);
+    };
+    const nextHandler = (e) => {
+      if (e && e.preventDefault) e.preventDefault();
+      setPage(page + 1);
+    };
+    mPrev.addEventListener("click", prevHandler);
+    mNext.addEventListener("click", nextHandler);
+  }
+
+  applySelections(state);
+
+  syncHeights();
+  window.addEventListener("resize", syncHeights);
+  queueHeightSyncOnImages();
+
+  // Buttons
+  const btnReset = $("btn-reset");
+  if (btnReset) {
+    btnReset.addEventListener("click", () => {
+      // Reset all groups to index 0
+      Object.keys(PARTS || {}).forEach(key => {
+        if (key !== '__name') state[key] = 0;
+      });
+      // Re-render all grids
+      Object.keys(PARTS || {}).forEach(key => {
+        if (key === '__name') return;
+        const items = PARTS[key];
+        if (Array.isArray(items) && items.length > 0) {
+          renderGrid(`grid-${key}`, items, key, state);
+        }
+      });
+      applySelections(state);
+    });
+  }
+
+  const btnRandom = $("btn-random");
+  if (btnRandom) {
+    btnRandom.addEventListener("click", () => {
+      // Randomize all groups
+      const randIdx = (arr) => Math.floor(Math.random() * arr.length);
+      Object.keys(PARTS || {}).forEach(key => {
+        if (key !== '__name' && Array.isArray(PARTS[key]) && PARTS[key].length > 0) {
+          state[key] = randIdx(PARTS[key]);
+        }
+      });
+      // Re-render all grids
+      Object.keys(PARTS || {}).forEach(key => {
+        if (key === '__name') return;
+        const items = PARTS[key];
+        if (Array.isArray(items) && items.length > 0) {

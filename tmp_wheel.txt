@@ -1,0 +1,61 @@
+  // Forward wheel/trackpad scroll on preview to the left controls panel
+  const previewBox = $("preview-box");
+  const controlsPanel = $("controls-panel");
+  if (previewBox && controlsPanel) {
+    previewBox.addEventListener(
+      'wheel',
+      (e) => {
+        const dy = e.deltaY;
+        // Determine if the left panel can scroll in the intended direction
+        const atTop = controlsPanel.scrollTop <= 0;
+        const atBottom = Math.ceil(controlsPanel.scrollTop + controlsPanel.clientHeight) >= controlsPanel.scrollHeight;
+        const goingDown = dy > 0;
+        const goingUp = dy < 0;
+        const canScrollDown = !atBottom;
+        const canScrollUp = !atTop;
+        if ((goingDown && canScrollDown) || (goingUp && canScrollUp)) {
+          e.preventDefault();
+          controlsPanel.scrollTop += dy;
+        }
+        // else: allow default page scroll
+      },
+      { passive: false }
+    );
+  }
+
+  // SKU select
+  const skuSelect = $("sku-select");
+  function refreshSkuSelect() {
+    if (!skuSelect) return;
+    skuSelect.innerHTML = '';
+    Object.entries(CATALOG).forEach(([key, parts]) => {
+      const opt = document.createElement('option');
+      opt.value = key;
+      opt.textContent = (parts.__name || key);
+      if (key === currentSKU) opt.selected = true;
+      skuSelect.appendChild(opt);
+    });
+  }
+  refreshSkuSelect();
+  if (skuSelect) {
+    skuSelect.addEventListener('change', () => {
+      const next = skuSelect.value;
+      if (!CATALOG[next]) return;
+      currentSKU = next;
+      PARTS = CATALOG[currentSKU];
+      // dynamic groups for this SKU
+      const groups = getGroupsOrdered(PARTS);
+      // reset state for available groups
+      const newState = {};
+      groups.forEach((g) => { newState[g] = 0; });
+      
+      // Re-create dynamic grids for new SKU
+      createDynamicGrids();
+      
+      // Render all grids dynamically
+      Object.keys(PARTS || {}).forEach(key => {
+        if (key === '__name') return;
+        const items = PARTS[key];
+        if (Array.isArray(items) && items.length > 0) {
+          renderGrid(`grid-${key}`, items, key, newState);
+          // mobile grids
