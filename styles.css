@@ -62,7 +62,7 @@ img { image-rendering: auto; }
   align-items: center;
   justify-content: center;
   width: 100%;
-  height: 160px; /* ~h-40 */
+  height: 120px; /* reduced so at least one row shows */
   padding: 12px; /* ~p-3 */
   background: #fff;
   border: 1px solid rgba(203, 213, 225, 0.9); /* slate-300-ish */
@@ -198,3 +198,30 @@ details > summary::-webkit-details-marker {
   padding-top: 8px; /* ~pt-2 */
 }
 
+/* Mobile sticky layout */
+@media (max-width: 767px) {
+  body {
+    /* Prevent body from scrolling on mobile */
+    overflow: hidden;
+  }
+  main {
+    display: flex;
+    flex-direction: column;
+    /* Full height minus header */
+    height: calc(100vh - var(--header-h));
+    /* Remove grid layout for mobile flex control */
+    display: flex;
+    flex-direction: column;
+  }
+  #mobile-config {
+    /* This is now the scrollable part at the top */
+    flex-grow: 1;
+    overflow-y: auto;
+    min-height: 0; /* Important for flex + overflow */
+    padding-bottom: 1rem; /* Add some space at the bottom */
+  }
+  #preview {
+    /* This is now the fixed part at the bottom */
+    flex-shrink: 0;
+  }
+}

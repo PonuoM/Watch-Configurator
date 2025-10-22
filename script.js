@@ -343,11 +343,10 @@ function renderGrid(gridId, items, groupKey, state) {
   });
 }
 
-// Render a compact horizontal row (mobile)
-function renderMobileRow(rowId, items, groupKey, state) {
-  const row = $(rowId);
-  if (!row) return;
-  row.innerHTML = "";
+// Render a compact horizontal row (mobile) - ACCEPTS ELEMENT
+function renderMobileRow(rowElement, items, groupKey, state) {
+  if (!rowElement) return;
+  rowElement.innerHTML = "";
   // Defensive: ensure items is an array before iterating (can be undefined when SKU lacks a group)
   const list = Array.isArray(items) ? items : [];
   list.forEach((it, idx) => {
@@ -364,13 +363,46 @@ function renderMobileRow(rowId, items, groupKey, state) {
     if (state[groupKey] === idx) card.classList.add("selected");
     card.appendChild(img);
     card.appendChild(label);
-    row.appendChild(card);
+    rowElement.appendChild(card);
     card.addEventListener("click", () => {
       state[groupKey] = idx;
       applySelections(state);
-      renderMobileRow(rowId, items, groupKey, state);
+      // Re-render only this row to update selection
+      renderMobileRow(rowElement, items, groupKey, state);
     });
     card.addEventListener("dblclick", () => openModal(groupKey, idx));
+  });
+}
+
+// NEW: Renders all part groups vertically for mobile view
+function renderMobilePartGroups(state) {
+  const container = document.getElementById('mobile-parts-container');
+  if (!container) return;
+  container.innerHTML = ''; // Clear existing
+
+  const availableGroups = MASTER_GROUP_LIST
+    .filter(g => PARTS[g.key] && PARTS[g.key].length > 0);
+  
+  if (availableGroups.length === 0) {
+    container.textContent = 'No parts available for this model.';
+    return;
+  }
+
+  availableGroups.forEach(groupInfo => {
+    // Group Title
+    const title = document.createElement('h3');
+    title.className = 'text-base font-semibold';
+    title.textContent = `${groupInfo.name_th} / ${groupInfo.name_en}`;
+    container.appendChild(title);
+
+    // Horizontally scrollable row for thumbnails
+    const row = document.createElement('div');
+    row.className = 'mobile-row';
+    container.appendChild(row);
+
+    // Render thumbnails into the row
+    const items = PARTS[groupInfo.key];
+    renderMobileRow(row, items, groupInfo.key, state);
   });
 }
 
@@ -616,63 +648,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // Mobile bottom carousel logic (only if elements exist)
-  function setupMobileCarousel(state) {
-    const mTitle = $("m-title");
-    const mSubtitle = $("m-subtitle");
-    const mPrev = $("m-prev");
-    const mNext = $("m-next");
-    const mRow = $("m-row");
-    const mPage = $("m-page");
-
-    if (!mPrev || !mNext) return;
-
-    // Dynamically build groups from current SKU's parts that have items
-    const groups = MASTER_GROUP_LIST
-      .filter(g => PARTS[g.key] && PARTS[g.key].length > 0)
-      .map(g => ({ key: g.key, title: g.name_en, subtitle: g.name_th }));
-
-    if (groups.length === 0) {
-      if (mTitle) mTitle.textContent = 'No parts available';
-      if (mSubtitle) mSubtitle.textContent = '';
-      if (mRow) mRow.innerHTML = '';
-      if (mPrev) mPrev.style.display = 'none';
-      if (mNext) mNext.style.display = 'none';
-      if (mPage) mPage.textContent = '0/0';
-      return;
-    }
-
-    if (mPrev) mPrev.style.display = '';
-    if (mNext) mNext.style.display = '';
-    
-    let page = 0;
-    function updateNavState() {
-      if (mPrev) mPrev.disabled = page <= 0;
-      if (mNext) mNext.disabled = page >= groups.length - 1;
-      if (mPage) mPage.textContent = `${page + 1}/${groups.length}`;
-    }
-    function setPage(p) {
-      page = Math.max(0, Math.min(p, groups.length - 1));
-      if (page >= groups.length) return; // safety
-      const g = groups[page];
-      if (mTitle) mTitle.textContent = g.title;
-      if (mSubtitle) mSubtitle.textContent = g.subtitle;
-      const items = PARTS[g.key];
-      if (mRow) renderMobileRow("m-row", items, g.key, state);
-      if (mRow) mRow.scrollTo({ left: 0, behavior: "smooth" });
-      updateNavState();
-    }
-    setPage(0);
-    mPrev.removeEventListener("click", window.__mobileNavPrev);
-    mNext.removeEventListener("click", window.__mobileNavNext);
-    window.__mobileNavPrev = () => setPage(page - 1);
-    window.__mobileNavNext = () => setPage(page + 1);
-    mPrev.addEventListener("click", window.__mobileNavPrev);
-    mNext.addEventListener("click", window.__mobileNavNext);
-  }
-
-  // Initial setup on load
-  setupMobileCarousel(state);
+  // Setup mobile view
+  renderMobilePartGroups(state);
 
   applySelections(state);
 
@@ -901,8 +878,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     });
     
-    // Re-initialize mobile carousel with new parts
-    setupMobileCarousel(state);
+    // Re-initialize mobile parts view
+    renderMobilePartGroups(state);
     
     applySelections(state);
 
