@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <title>Watch Configurator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Supabase SDK (optional). Provide keys via supabase.config.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="./supabase.config.js"></script>
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' ry='3' fill='%230e141b'/%3E%3Cpath d='M4 8h8M8 4v8' stroke='%23e7edf3' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E" />
+  </head>
+  <body class="bg-slate-50 text-slate-900">
+    <header class="bg-white border-b border-slate-200">
+  <div class="max-w-screen-2xl mx-auto px-6 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <button id="open-mobile" class="-ml-2 mr-1 inline-flex items-center justify-center w-9 h-9 rounded border border-slate-300 text-slate-700" aria-label="Open menu"><span aria-hidden="true">=</span></button>
+      <div class="w-8 h-8 rounded bg-slate-900 flex items-center justify-center text-white font-bold">W</div>
+      <div>
+        <h1 class="text-lg font-semibold leading-tight">Watch Configurator</h1>
+        <div class="text-sm text-slate-500">Store: <span id="store-name-display">Watch Configurator</span></div>
+      </div>
+    </div>
+    <div class="hidden md:block text-sm text-slate-500">Use the menu for actions</div>
+  </div>
+</header>
+
+    <main class="max-w-screen-2xl mx-auto px-6 py-6">
+      <!-- Controls column (left on desktop; second on mobile) -->
+      <section id="controls" class="mt-6">
+  <div class="bg-white rounded-xl shadow p-4">
+    <div class="flex items-center gap-2 mb-3">
+      <select id="sku-select" class="border border-slate-300 rounded-md px-2 py-1 text-sm"></select>
+      <button id="btn-reset" class="px-3 py-1.5 rounded border border-slate-300 text-sm">Reset</button>
+      <button id="btn-random" class="px-3 py-1.5 rounded border border-slate-300 text-sm">Random</button>
+    </div>
+    <div id="controls-panel" class="max-h-[60vh] overflow-y-auto">
+      <!-- Filled dynamically by script.js -->
+      <p class="text-slate-500 text-sm">Loading parts...</p>
+    </div>
+  </div>
+</section>
+
+      <!-- Preview column (right on desktop; first on mobile) -->
+      <section id="preview" class="min-h-[50vh]">
+        <div class="bg-white rounded-xl shadow p-4 h-full flex flex-col">
+          <div id="preview-box" class="preview-box relative w-full max-w-2xl mx-auto aspect-square md:aspect-[4/5] max-h-[70vh] md:max-h-[75vh] bg-slate-100 rounded-lg overflow-hidden flex items-center justify-center">
+            <div id="zoom-inner" class="relative w-full h-full"></div>
+          </div>
+          </div>
+      </section>
+    </main>
+
+    <!-- Image modal -->
+    <div id="image-modal" class="fixed inset-0 hidden items-center justify-center bg-black/60 z-50">
+      <div class="bg-white rounded-xl shadow-xl max-w-2xl w-full p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-semibold">Preview</h3>
+          <button id="modal-close" class="text-slate-500">?</button>
+        </div>
+        <div class="aspect-square bg-slate-100 rounded-lg overflow-hidden flex items-center justify-center">
+          <img id="modal-img" src="" alt="Preview" class="object-contain w-full h-full" />
+        </div>
+        <div class="flex items-center justify-between mt-3">
+          <div id="modal-caption" class="text-sm text-slate-600"></div>
+          <button id="modal-select" class="px-3 py-1.5 rounded bg-slate-900 text-white text-sm">Select</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading overlay -->
+    <div id="loading-overlay" class="fixed inset-0 hidden items-center justify-center z-50 bg-white/95">
+      <div>
+        <div class="loader"></div>
+        <p class="mt-3 text-center text-slate-600">Loading...</p>
+      </div>
+    </div>
+
+    <!-- Sidebar menu overlay (actions) -->\n<div id="mobile-overlay" class="hidden fixed inset-0 z-50">\n  <div id="mobile-backdrop" class="absolute inset-0 bg-black/40"></div>\n  <aside id="mobile-drawer" class="absolute left-0 top-0 h-full w-4/5 max-w-xs bg-white shadow-xl transform -translate-x-full transition-transform duration-300 ease-out">\n    <div class="p-3 border-b flex items-center justify-between">\n      <h3 class="font-semibold">Menu</h3>\n      <button id="close-mobile" class="inline-flex items-center justify-center w-8 h-8 rounded border border-slate-300" aria-label="Close">?</button>\n    </div>\n    <div class="p-3 space-y-3">\n      <button id="btn-download" class="w-full px-3 py-2 rounded-md bg-slate-900 text-white text-sm">Download PNG</button>\n      <a id="open-admin" href="./admin.html" class="w-full inline-flex items-center justify-center px-3 py-2 rounded-md bg-white border border-slate-300 text-sm">Open Admin</a>\n    </div>\n  </aside>\n</div>\n\n<script src="./script.js"></script>
+  </body>
+  </html>
+
+
+
+

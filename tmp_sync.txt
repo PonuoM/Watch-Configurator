@@ -1,0 +1,80 @@
+    dial: randIdx(PARTS.dial),
+    hands: randIdx(PARTS.hands),
+    second: randIdx(PARTS.second),
+    outer: randIdx(PARTS.outer),
+    inner: randIdx(PARTS.inner),
+    bracelet: randIdx(PARTS.bracelet)
+  };
+}
+
+// Modal helpers
+let modalContext = { groupKey: null, index: null };
+let heightSyncQueued = false;
+let zoom = 1; // default: 100%
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 2;
+const ZOOM_STEP = 0.1;
+function syncHeights() {
+  const previewCard = document.querySelector("#preview > div");
+  const panel = document.getElementById("controls-panel");
+  if (!previewCard || !panel) return;
+  if (window.matchMedia("(min-width: 768px)").matches) {
+    const rect = previewCard.getBoundingClientRect();
+    panel.style.maxHeight = "";
+    panel.style.height = Math.floor(rect.height) + "px";
+  } else {
+    panel.style.height = "";
+    panel.style.maxHeight = "";
+  }
+}
+
+// Simple toast helper (small non-blocking messages)
+function showToast(msg, type = 'info', timeout = 2500) {
+  function normalizeMsg(m, t) {
+    try {
+      if (typeof m !== 'string') return t === 'error' ? '??????????????' : (t === 'success' ? '??????????????' : '?????????');
+      const s = m.trim();
+      if (!s) return t === 'error' ? '??????????????' : (t === 'success' ? '??????????????' : '?????????');
+      const suspect = /[\uFFFD]|[à-ÿ]/.test(s);
+      if (suspect) return t === 'error' ? '??????????????' : (t === 'success' ? '??????????????' : '?????????');
+      return s;
+    } catch (_) { return t === 'error' ? '??????????????' : (t === 'success' ? '??????????????' : '?????????'); }
+  }
+  let wrap = document.getElementById('toast-wrap');
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.id = 'toast-wrap';
+    wrap.style.position = 'fixed';
+    wrap.style.right = '16px';
+    wrap.style.top = '16px';
+    wrap.style.zIndex = 60;
+    document.body.appendChild(wrap);
+  }
+  const el = document.createElement('div');
+  el.textContent = normalizeMsg(msg, type);
+  el.className = 'px-3 py-2 rounded-md text-sm text-white';
+  el.style.marginTop = '8px';
+  el.style.boxShadow = '0 4px 12px rgba(0,0,0,0.12)';
+  if (type === 'success') el.style.background = '#059669';
+  else if (type === 'error') el.style.background = '#dc2626';
+  else el.style.background = '#374151';
+  wrap.appendChild(el);
+  setTimeout(() => { el.style.transition = 'opacity 300ms, transform 300ms'; el.style.opacity = '0'; el.style.transform = 'translateY(-6px)'; setTimeout(() => el.remove(), 350); }, timeout);
+}
+
+function applyHeaderHeightVar() {
+  const header = document.querySelector('header');
+  const h = header ? header.offsetHeight : 0;
+  document.documentElement.style.setProperty('--header-h', h + 'px');
+}
+function queueHeightSyncOnImages() {
+  if (heightSyncQueued) return;
+  heightSyncQueued = true;
+  const layers = [
+    "layer-bracelet",
+    "layer-outer",
+    "layer-inner",
+    "layer-dial",
+    "layer-hands",
+    "layer-second"
+  ]

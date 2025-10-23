@@ -99,6 +99,16 @@ img { image-rendering: auto; }
 /* Ensure preview scales safely */
 .preview-box { overflow: hidden; }
 
+/* Anti-copy deterrents for preview images */
+#zoom-inner img,
+#zoom-inner .watch-layer {
+  -webkit-user-drag: none;
+  user-drag: none;
+  -webkit-touch-callout: none;
+  user-select: none;
+  pointer-events: none; /* block right-click on the image itself */
+}
+
 /* Watermark overlay inside the preview (scales with the watch) */
 #zoom-inner .watermark-overlay {
   position: absolute;
@@ -147,7 +157,10 @@ img { image-rendering: auto; }
 
 /* Mobile: make watch fill width with square ratio */
 @media (max-width: 767.98px) {
-  #preview .preview-box { max-width: none; }
+  #preview .preview-box {
+    max-width: none;
+    aspect-ratio: 1 / 1; /* square preview on mobile */
+  }
 }
 
 #mobile-parts-container h3 {
@@ -240,35 +253,20 @@ details > summary::-webkit-details-marker {
 }
 .part-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px; /* ~gap-3 */
   padding-top: 8px; /* ~pt-2 */
 }
 
-/* Mobile sticky layout */
+/* Mobile layout: allow natural page scroll and stack preview over parts */
 @media (max-width: 767px) {
   body {
-    /* Prevent body from scrolling on mobile */
-    overflow: hidden;
+    overflow: auto; /* allow scrolling on mobile */
   }
   main {
-    display: flex;
-    flex-direction: column;
-    /* Full height minus header */
-    height: calc(100vh - var(--header-h));
-    /* Remove grid layout for mobile flex control */
-    display: flex;
-    flex-direction: column;
+    display: block; /* fall back to normal flow */
+    height: auto;
+    overflow: visible;
   }
-  #mobile-config {
-    /* This is now the scrollable part at the top */
-    flex-grow: 1;
-    overflow-y: auto;
-    min-height: 0; /* Important for flex + overflow */
-    padding-bottom: 1rem; /* Add some space at the bottom */
-  }
-  #preview {
-    /* This is now the fixed part at the bottom */
-    flex-shrink: 0;
-  }
+  /* Ensure mobile parts container shows; desktop grid hidden via index.html classes */
 }

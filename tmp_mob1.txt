@@ -1,0 +1,30 @@
+    overflow-y: scroll; /* force visible scrollbar */
+    overflow-x: hidden;
+    touch-action: pan-y;
+  }
+  #preview .preview-box { height: 100%; }
+}
+
+/* Mobile: make watch fill width with square ratio */
+@media (max-width: 767.98px) {
+  #preview .preview-box { max-width: none; }
+}
+
+#mobile-parts-container h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  color: var(--text-primary);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+#mobile-parts-container .selected-item-name {
+  font-weight: 400;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.mobile-row {
+  display: flex;

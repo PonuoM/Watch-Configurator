@@ -1,0 +1,200 @@
+  if (heightSyncQueued) return;
+  heightSyncQueued = true;
+  const layers = [
+    "layer-bracelet",
+    "layer-outer",
+    "layer-inner",
+    "layer-dial",
+    "layer-hands",
+    "layer-second"
+  ]
+    .map((id) => $(id))
+    .filter(Boolean);
+  let remaining = layers.length;
+  const done = () => {
+    remaining--;
+    if (remaining <= 0) {
+      heightSyncQueued = false;
+      syncHeights();
+    }
+  };
+  layers.forEach((img) => {
+    if (!img.complete) {
+      img.addEventListener("load", done, { once: true });
+      img.addEventListener("error", done, { once: true });
+    } else {
+      done();
+    }
+  });
+}
+function openModal(groupKey, idx) {
+  const it = PARTS[groupKey][idx];
+  modalContext = { groupKey, index: idx };
+  const src = it ? (it.dataUrl ? it.dataUrl : (it.file ? IMG_BASE + it.file : "")) : "";
+  $("modal-img").src = src;
+  $("modal-caption").textContent = it.label;
+  const m = $("image-modal");
+  m.classList.remove("hidden");
+  m.classList.add("flex");
+}
+function closeModal() {
+  const m = $("image-modal");
+  m.classList.add("hidden");
+  m.classList.remove("flex");
+}
+
+// Function to create dynamic layer images based on MASTER_GROUP_LIST
+function createDynamicLayers() {
+  const zoomInner = document.getElementById('zoom-inner');
+  if (!zoomInner) return;
+  
+  // Clear existing layers
+  zoomInner.innerHTML = '';
+  
+  // Create layers in order from MASTER_GROUP_LIST
+  MASTER_GROUP_LIST.forEach(groupInfo => {
+    const img = document.createElement('img');
+    img.id = `layer-${groupInfo.key}`;
+    img.alt = groupInfo.name_en || groupInfo.key;
+    img.className = 'absolute inset-0 w-full h-full object-contain';
+    img.style.visibility = 'hidden'; // initially hidden
+    
+    // Apply z-index from database to control layer stacking
+    if (groupInfo.z_index !== undefined && groupInfo.z_index !== null) {
+      img.style.zIndex = groupInfo.z_index;
+    }
+    
+    zoomInner.appendChild(img);
+  });
+
+  // Append watermark overlay (scaled with zoom because it's inside zoom-inner)
+  try {
+    const wm = document.createElement('img');
+    wm.id = 'wm-overlay';
+    
+    // Try to get watermark from profile settings first, then fall back to default
+    const savedWatermarkUrl = localStorage.getItem('watchWatermarkUrl');
+    const savedWatermarkOpacity = localStorage.getItem('watchWatermarkOpacity');
+    const savedWatermarkPosition = localStorage.getItem('watchWatermarkPosition');
+    const savedWatermarkSize = localStorage.getItem('watchWatermarkSize');
+    
+    wm.src = savedWatermarkUrl || WATERMARK_IMAGE;
+    wm.alt = 'watermark';
+    wm.className = 'watermark-overlay';
+    wm.draggable = false;
+    
+    // Apply watermark settings if available
+    if (savedWatermarkOpacity) {
+      wm.style.opacity = savedWatermarkOpacity;
+    }
+    
+    if (savedWatermarkSize) {
+      wm.style.width = savedWatermarkSize + 'px';
+      wm.style.height = 'auto';
+    }
+    
+    // Apply position - use the same logic as in preview
+    // Check if it's a custom position
+    if (savedWatermarkPosition && savedWatermarkPosition.startsWith('custom:')) {
+      // Extract the x and y percentages from the custom position
+      const parts = savedWatermarkPosition.split(':');
+      if (parts.length === 3) {
+        const xPercent = parseFloat(parts[1]);
+        const yPercent = parseFloat(parts[2]);
+        
+        // Apply custom position
+        wm.style.left = xPercent + '%';
+        wm.style.top = yPercent + '%';
+        wm.style.right = 'auto';
+        wm.style.bottom = 'auto';
+        wm.style.transform = 'translate(-50%, -50%)';
+      }
+    } else {
+      const positions = {
+        'top-left': { top: '10px', left: '10px', right: 'auto', bottom: 'auto' },
+        'top-right': { top: '10px', right: '10px', left: 'auto', bottom: 'auto' },
+        'bottom-left': { bottom: '10px', left: '10px', top: 'auto', right: 'auto' },
+        'bottom-right': { bottom: '10px', right: '10px', top: 'auto', left: 'auto' },
+        'center': { top: '50%', left: '50%', transform: 'translate(-50%, -50%)', right: 'auto', bottom: 'auto' }
+      };
+      
+      const pos = positions[savedWatermarkPosition] || positions['bottom-right'];
+      Object.keys(pos).forEach(key => {
+        wm.style[key] = pos[key];
+      });
+    }
+    
+    zoomInner.appendChild(wm);
+  } catch (e) { /* ignore */ }
+}
+
+// Function to create dynamic grids based on MASTER_GROUP_LIST and current SKU parts
+function createDynamicGrids() {
+  const controlsPanel = document.getElementById('controls-panel');
+  if (!controlsPanel) return;
+  try { window.SUB_FILTERS = window.SUB_FILTERS || {}; } catch(_) {}
+  
+  // Find the buttons container to preserve it
+  const buttonsContainer = controlsPanel.querySelector('.flex.gap-3');
+  
+  // Clear everything except the first paragraph and buttons
+  const firstP = controlsPanel.querySelector('p');
+  controlsPanel.innerHTML = '';
+  if (firstP) controlsPanel.appendChild(firstP);
+  
+  // Get groups that exist in current SKU
+  const currentParts = PARTS || {};
+  const availableGroups = MASTER_GROUP_LIST.filter(g => currentParts[g.key] && currentParts[g.key].length > 0);
+  
+  // Create grid for each available group
+  availableGroups.forEach(groupInfo => {
+    const key = groupInfo.key;
+    
+    // Create title
+    const title = document.createElement('h3');
+    title.className = 'part-title';
+    title.textContent = `${groupInfo.name_th} / ${groupInfo.name_en}`;
+    controlsPanel.appendChild(title);
+    
+    // Subcategory filter (if any)
+    const subWrap = document.createElement('div');
+    subWrap.className = 'mb-2';
+    const scSelect = document.createElement('select');
+    scSelect.id = `sc-filter-${key}`;
+    scSelect.className = 'border border-slate-300 rounded-md text-slate-700 bg-white px-2 py-1 text-sm';
+    const firstOpt = document.createElement('option'); firstOpt.value = 'all'; firstOpt.textContent = 'All'; scSelect.appendChild(firstOpt);
+    try {
+      const fromList = getSubcatList(currentSKU, key);
+      const fromMeta = unionSubcatsFromMeta(currentSKU, key);
+      Array.from(new Set([...(fromList||[]), ...(fromMeta||[])])).forEach(v => { const o=document.createElement('option'); o.value=v; o.textContent=v; scSelect.appendChild(o); });
+    } catch (_) {}
+    scSelect.addEventListener('change', () => { try { window.SUB_FILTERS = window.SUB_FILTERS || {}; window.SUB_FILTERS[key] = scSelect.value; } catch(_){} renderGrid(`grid-${key}`, PARTS[key] || [], key, {}); });
+    subWrap.appendChild(scSelect);
+    controlsPanel.appendChild(subWrap);
+    
+    // Create grid
+    const grid = document.createElement('div');
+    grid.id = `grid-${key}`;
+    grid.className = 'part-grid';
+    controlsPanel.appendChild(grid);
+  });
+  
+  // Re-append buttons container
+  if (buttonsContainer) controlsPanel.appendChild(buttonsContainer);
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
+  // Load store name from localStorage or use default
+  const storeNameDisplay = document.getElementById('store-name-display');
+  if (storeNameDisplay) {
+    const savedStoreName = localStorage.getItem('watchStoreName');
+    if (savedStoreName) {
+      storeNameDisplay.textContent = savedStoreName;
+    }
+  }
+  
+  // show loading overlay until catalog and initial images are loaded
+  showLoading(true);
+  await maybeLoadCatalogFromSupabase();
+  
+  // Create dynamic layers and grids after loading catalog

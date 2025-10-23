@@ -1,0 +1,35 @@
+                    statusDiv.className = 'status error';
+                    return;
+                }
+                
+                if (!hasSDK) {
+                    statusDiv.textContent = '????????????? Supabase SDK ???';
+                    statusDiv.className = 'status error';
+                    return;
+                }
+                
+                const client = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+                const { data, error } = await client.from('skus').select('id,name').limit(1);
+                
+                if (error) {
+                    statusDiv.textContent = `????????????????????????????: ${error.message}`;
+                    statusDiv.className = 'status error';
+                } else {
+                    statusDiv.textContent = '???????????? Supabase ??????!';
+                    statusDiv.className = 'status success';
+                }
+            } catch (err) {
+                statusDiv.textContent = `??????????????: ${err.message}`;
+                statusDiv.className = 'status error';
+            }
+        }
+        
+        function openApp() {
+            window.open('./index.html', '_blank');
+        }
+        
+        // ????????????????????????????????????????????
+        window.addEventListener('DOMContentLoaded', checkSupabaseConnection);
+    </script>
+</body>
+</html>

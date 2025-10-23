@@ -1,0 +1,60 @@
+  const key = normalizeUrl(url || '');
+  const m = getAssetMetaMap();
+  return m[key] || {};
+}
+
+// Subcategory list per (sku|group) so admin can predefine options
+function getSubcatListKey(sku, groupKey) { return `${sku}__${groupKey}`; }
+function getSubcatList(sku, groupKey) {
+  try { const raw = localStorage.getItem('watchSubcategoryList'); const obj = raw ? JSON.parse(raw) : {}; return obj[getSubcatListKey(sku, groupKey)] || []; } catch (_) { return []; }
+}
+function saveSubcatList(sku, groupKey, arr) {
+  try { const raw = localStorage.getItem('watchSubcategoryList'); const obj = raw ? JSON.parse(raw) : {}; obj[getSubcatListKey(sku, groupKey)] = Array.from(new Set(arr.filter(Boolean))); localStorage.setItem('watchSubcategoryList', JSON.stringify(obj)); } catch (_) {}
+}
+function unionSubcatsFromMeta(sku, groupKey) {
+  const items = (CATALOG[sku] && CATALOG[sku][groupKey]) ? CATALOG[sku][groupKey] : [];
+  const set = new Set();
+  items.forEach(it => { const url = it.dataUrl || (it.file ? (IMG_BASE + it.file) : ''); const sc = (getAssetMeta(url) || {}).subcategory; if (sc) set.add(String(sc)); });
+  return Array.from(set);
+}
+
+// Loading overlay helpers
+function showLoading(show) {
+  const el = document.getElementById('loading-overlay');
+  if (!el) return;
+  el.style.display = show ? 'flex' : 'none';
+}
+
+// Safe close for admin overlay: if original showAdmin exists use it, else hide overlay element if present
+function closeAdminIfOverlayExists() {
+  try {
+    if (typeof showAdmin === 'function') { showAdmin(false); return; }
+  } catch (e) { /* ignore */ }
+  const overlay = document.getElementById('admin-overlay');
+  if (overlay) {
+    overlay.classList.add('hidden');
+    overlay.classList.remove('flex');
+  }
+}
+
+// Preload images for a given SKU (resolve when all loaded or after timeout)
+function preloadImagesForSKU(skuKey, timeoutMs = 4000) {
+  return new Promise((resolve) => {
+    const parts = CATALOG[skuKey] || {};
+    const urls = [];
+    Object.keys(parts).forEach((k) => {
+      if (String(k).startsWith('__')) return;
+      const arr = Array.isArray(parts[k]) ? parts[k] : [];
+      arr.forEach((it) => {
+        const src = it && it.dataUrl ? it.dataUrl : (it && it.file ? (IMG_BASE + it.file) : null);
+        if (src) urls.push(src);
+      });
+    });
+    if (!urls.length) return resolve();
+    let remaining = urls.length;
+    const onDone = () => {
+      remaining--;
+      if (remaining <= 0) resolve();
+    };
+    urls.forEach((u) => {
+      const im = new Image();

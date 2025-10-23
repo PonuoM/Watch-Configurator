@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <title>Watch Configurator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Supabase SDK (optional). Provide keys via supabase.config.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="./supabase.config.js"></script>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' ry='3' fill='%230e141b'/%3E%3Cpath d='M4 8h8M8 4v8' stroke='%23e7edf3' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E" />
+        <!-- Removed legacy localStorage-driven preview mode block to prevent overriding watermark settings -->
+  </body>
+  </html>
+

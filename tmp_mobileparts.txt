@@ -1,0 +1,160 @@
+
+    // Click to select
+    card.addEventListener("click", () => {
+      state[groupKey] = idx;
+      applySelections(state);
+      // update selection UI
+      renderGroupSelection(gridId, state[groupKey]);
+    });
+
+    // Double click to open modal preview
+    card.addEventListener("dblclick", () => openModal(groupKey, idx));
+  });
+}
+
+// Render a compact horizontal row (mobile) - ACCEPTS ELEMENT
+function renderMobileRow(rowEl, items, groupKey, state) {
+  rowEl.innerHTML = ''; // Clear previous items
+  items.forEach((item, idx) => {
+    const thumb = document.createElement('div');
+    thumb.className = 'mobile-thumb';
+    if (idx === state[groupKey]) {
+      thumb.classList.add('selected');
+    }
+    const imgSrc = item.dataUrl ? item.dataUrl : IMG_BASE + item.file;
+    thumb.innerHTML = `<img src="${imgSrc}" alt="${item.label}" loading="lazy">`;
+    thumb.addEventListener('click', () => {
+      state[groupKey] = idx;
+      applySelections(state);
+      
+      // Update title with new selection name
+      const titleEl = document.getElementById(`mobile-group-title-${groupKey}`);
+      if (titleEl) {
+        const nameSpan = titleEl.querySelector('.selected-item-name');
+        if (nameSpan) {
+          nameSpan.textContent = item.label;
+        }
+      }
+      
+      // Re-render this row to update selection visual
+      renderMobileRow(rowEl, items, groupKey, state);
+    });
+    rowEl.appendChild(thumb);
+  });
+}
+
+// NEW: Renders all part groups vertically for mobile view
+function renderMobilePartGroups(state) {
+  const container = document.getElementById('mobile-parts-container');
+  if (!container) return;
+  container.innerHTML = ''; // Clear existing
+
+  const availableGroups = MASTER_GROUP_LIST
+    .filter(g => PARTS[g.key] && PARTS[g.key].length > 0);
+  
+  if (availableGroups.length === 0) {
+    container.textContent = 'No parts available for this model.';
+    return;
+  }
+
+  availableGroups.forEach(groupInfo => {
+    const items = PARTS[groupInfo.key] || [];
+    const currentSelectionIdx = state[groupInfo.key] || 0;
+    const selectedItem = items[currentSelectionIdx];
+
+    // Group Title
+    const title = document.createElement('h3');
+    title.id = `mobile-group-title-${groupInfo.key}`;
+    title.innerHTML = `
+      ${groupInfo.name_th} / ${groupInfo.name_en}
+      <span class="selected-item-name">${selectedItem ? selectedItem.label : ''}</span>
+    `;
+    container.appendChild(title);
+
+    // Horizontally scrollable row for thumbnails
+    const row = document.createElement('div');
+    row.className = 'mobile-row';
+    container.appendChild(row);
+
+    // Render thumbnails into the row
+    renderMobileRow(row, items, groupInfo.key, state);
+  });
+}
+
+function renderGroupSelection(gridId, selectedIdx) {
+  const grid = $(gridId);
+  if (!grid) return;
+  [...grid.children].forEach((el, i) => {
+    el.classList.toggle("selected", i === selectedIdx);
+  });
+}
+
+function applySelections(state) {
+  // Helper to safely pick an item from PARTS for a given key using the state's index
+  function pickItem(key) {
+    try {
+      const arr = PARTS && PARTS[key];
+      if (!arr || !Array.isArray(arr) || arr.length === 0) return null;
+      const idx = state ? state[key] : undefined;
+      if (typeof idx === 'number') return arr[idx] || null;
+      const parsed = parseInt(idx, 10);
+      if (!Number.isNaN(parsed)) return arr[parsed] || null;
+      return arr[0] || null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Apply selections dynamically for all groups in MASTER_GROUP_LIST
+  MASTER_GROUP_LIST.forEach(groupInfo => {
+    const key = groupInfo.key;
+    setLayerFromItem(`layer-${key}`, pickItem(key));
+  });
+  
+  // After changing images, resync heights when images load
+  queueHeightSyncOnImages();
+}
+
+function randomizeState() {
+  const randIdx = (arr) => Math.floor(Math.random() * arr.length);
+  return {
+    dial: randIdx(PARTS.dial),
+    hands: randIdx(PARTS.hands),
+    second: randIdx(PARTS.second),
+    outer: randIdx(PARTS.outer),
+    inner: randIdx(PARTS.inner),
+    bracelet: randIdx(PARTS.bracelet)
+  };
+}
+
+// Modal helpers
+let modalContext = { groupKey: null, index: null };
+let heightSyncQueued = false;
+let zoom = 1; // default: 100%
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 2;
+const ZOOM_STEP = 0.1;
+function syncHeights() {
+  const previewCard = document.querySelector("#preview > div");
+  const panel = document.getElementById("controls-panel");
+  if (!previewCard || !panel) return;
+  if (window.matchMedia("(min-width: 768px)").matches) {
+    const rect = previewCard.getBoundingClientRect();
+    panel.style.maxHeight = "";
+    panel.style.height = Math.floor(rect.height) + "px";
+  } else {
+    panel.style.height = "";
+    panel.style.maxHeight = "";
+  }
+}
+
+// Simple toast helper (small non-blocking messages)
+function showToast(msg, type = 'info', timeout = 2500) {
+  function normalizeMsg(m, t) {
+    try {
+      if (typeof m !== 'string') return t === 'error' ? '??????????????' : (t === 'success' ? '??????????????' : '?????????');
+      const s = m.trim();
+      if (!s) return t === 'error' ? '??????????????' : (t === 'success' ? '??????????????' : '?????????');
+      const suspect = /[\uFFFD]|[à-ÿ]/.test(s);
+      if (suspect) return t === 'error' ? '??????????????' : (t === 'success' ? '??????????????' : '?????????');
+      return s;

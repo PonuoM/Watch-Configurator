@@ -1,0 +1,40 @@
+        autoRefreshToken: true,
+        detectSessionInUrl: false
+      }
+    });
+    console.log('Supabase client created successfully (singleton)');
+    return _supabaseClient;
+  } catch (e) {
+    console.error('Failed to create Supabase client:', e);
+    return null;
+  } finally {
+    _isCreatingClient = false;
+  }
+}
+
+function $(id) {
+  return document.getElementById(id);
+}
+
+// Normalize public URLs to compare reliably (strip query string/fragment, trailing slash)
+function normalizeUrl(u) {
+  try {
+    if (!u) return '';
+    const url = new URL(u);
+    url.search = '';
+    url.hash = '';
+    let s = url.toString();
+    // remove trailing slash
+    if (s.endsWith('/')) s = s.slice(0, -1);
+    return s;
+  } catch (e) {
+    // fallback: strip ? and # manually
+    if (!u) return '';
+    return u.split('?')[0].split('#')[0].replace(/\/+$/,'');
+  }
+}
+
+// ---- Asset metadata (local) helpers: store extra fields per asset URL ----
+function getAssetMetaMap() {
+  try { const raw = localStorage.getItem('watchAssetMeta'); return raw ? JSON.parse(raw) : {}; } catch (_) { return {}; }
+}

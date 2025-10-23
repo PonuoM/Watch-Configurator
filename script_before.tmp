@@ -63,7 +63,7 @@ async function maybeLoadCatalogFromSupabase() {
     if (e2) return false;
     // Debug logs to help diagnose missing images in the browser console
     try { console.debug('supabase skus:', skus); console.debug('supabase assets (sample 10):', assets && assets.slice(0,10)); } catch(e){}
-    // Transform â†' CATALOG shape (support arbitrary group_key values)
+    // Transform â†’ CATALOG shape (support arbitrary group_key values)
     const toEmpty = () => ({});
     const cat = {};
     skus.forEach(s => { cat[s.id] = { __name: s.name || s.id, __created_at: s.created_at || null }; });
@@ -251,8 +251,8 @@ function preloadImagesForSKU(skuKey, timeoutMs = 4000) {
     const parts = CATALOG[skuKey] || {};
     const urls = [];
     Object.keys(parts).forEach((k) => {
-      if (String(k).startsWith('__')) return;
-      const arr = Array.isArray(parts[k]) ? parts[k] : [];
+      if (k === '__name') return;
+      const arr = parts[k] || [];
       arr.forEach((it) => {
         const src = it && it.dataUrl ? it.dataUrl : (it && it.file ? (IMG_BASE + it.file) : null);
         if (src) urls.push(src);
@@ -422,47 +422,14 @@ function renderMobilePartGroups(state) {
     const currentSelectionIdx = state[groupInfo.key] || 0;
     const selectedItem = items[currentSelectionIdx];
 
-    // Title row with inline subcategory filter
-    const titleRow = document.createElement('div');
-    titleRow.className = 'flex items-center justify-between';
-
+    // Group Title
     const title = document.createElement('h3');
     title.id = `mobile-group-title-${groupInfo.key}`;
     title.innerHTML = `
       ${groupInfo.name_th} / ${groupInfo.name_en}
       <span class="selected-item-name">${selectedItem ? selectedItem.label : ''}</span>
     `;
-
-    const scSelect = document.createElement('select');
-    scSelect.id = `msc-filter-${groupInfo.key}`;
-    scSelect.className = 'border border-slate-300 rounded-md text-slate-700 bg-white px-2 py-1 text-sm';
-    const firstOpt = document.createElement('option'); firstOpt.value = 'all'; firstOpt.textContent = 'All'; scSelect.appendChild(firstOpt);
-    try {
-      const fromList = getSubcatList(currentSKU, groupInfo.key);
-      const fromMeta = unionSubcatsFromMeta(currentSKU, groupInfo.key);
-      Array.from(new Set([...(fromList||[]), ...(fromMeta||[])])).forEach(v => { const o=document.createElement('option'); o.value=v; o.textContent=v; scSelect.appendChild(o); });
-    } catch (_) {}
-    scSelect.addEventListener('change', () => {
-      try { window.SUB_FILTERS = window.SUB_FILTERS || {}; window.SUB_FILTERS[groupInfo.key] = scSelect.value; } catch(_){}
-      renderMobilePartGroups(state);
-    });
-
-    titleRow.appendChild(title);
-    titleRow.appendChild(scSelect);
-    container.appendChild(titleRow);
-
-    // Apply filter to items for mobile row
-    let filtered = items;
-    try {
-      const sel = (window.SUB_FILTERS || {})[groupInfo.key] || 'all';
-      if (sel !== 'all') {
-        filtered = items.filter((it) => {
-          const url = it && (it.dataUrl || (it.file ? (IMG_BASE + it.file) : ''));
-          const meta = getAssetMeta(url);
-          return (meta && meta.subcategory) ? (meta.subcategory === sel) : false;
-        });
-      }
-    } catch (_) {}
+    container.appendChild(title);
 
     // Horizontally scrollable row for thumbnails
     const row = document.createElement('div');
@@ -470,7 +437,7 @@ function renderMobilePartGroups(state) {
     container.appendChild(row);
 
     // Render thumbnails into the row
-    renderMobileRow(row, filtered, groupInfo.key, state);
+    renderMobileRow(row, items, groupInfo.key, state);
   });
 }
 
@@ -543,16 +510,6 @@ function syncHeights() {
 
 // Simple toast helper (small non-blocking messages)
 function showToast(msg, type = 'info', timeout = 2500) {
-  function normalizeMsg(m, t) {
-    try {
-      if (typeof m !== 'string') return t === 'error' ? 'เกิดข้อผิดพลาด' : (t === 'success' ? 'ทำรายการสำเร็จ' : 'แจ้งเตือน');
-      const s = m.trim();
-      if (!s) return t === 'error' ? 'เกิดข้อผิดพลาด' : (t === 'success' ? 'ทำรายการสำเร็จ' : 'แจ้งเตือน');
-      const suspect = /[\uFFFD]|[à-ÿ]/.test(s);
-      if (suspect) return t === 'error' ? 'เกิดข้อผิดพลาด' : (t === 'success' ? 'ทำรายการสำเร็จ' : 'แจ้งเตือน');
-      return s;
-    } catch (_) { return t === 'error' ? 'เกิดข้อผิดพลาด' : (t === 'success' ? 'ทำรายการสำเร็จ' : 'แจ้งเตือน'); }
-  }
   let wrap = document.getElementById('toast-wrap');
   if (!wrap) {
     wrap = document.createElement('div');
@@ -564,7 +521,7 @@ function showToast(msg, type = 'info', timeout = 2500) {
     document.body.appendChild(wrap);
   }
   const el = document.createElement('div');
-  el.textContent = normalizeMsg(msg, type);
+  el.textContent = msg;
   el.className = 'px-3 py-2 rounded-md text-sm text-white';
   el.style.marginTop = '8px';
   el.style.boxShadow = '0 4px 12px rgba(0,0,0,0.12)';
@@ -732,15 +689,16 @@ function createDynamicGrids() {
   // Create grid for each available group
   availableGroups.forEach(groupInfo => {
     const key = groupInfo.key;
-
-    // Title row with inline subcategory filter
-    const titleRow = document.createElement('div');
-    titleRow.className = 'flex items-center justify-between mt-4';
-
+    
+    // Create title
     const title = document.createElement('h3');
-    title.className = 'part-title m-0';
+    title.className = 'part-title';
     title.textContent = `${groupInfo.name_th} / ${groupInfo.name_en}`;
-
+    controlsPanel.appendChild(title);
+    
+    // Subcategory filter (if any)
+    const subWrap = document.createElement('div');
+    subWrap.className = 'mb-2';
     const scSelect = document.createElement('select');
     scSelect.id = `sc-filter-${key}`;
     scSelect.className = 'border border-slate-300 rounded-md text-slate-700 bg-white px-2 py-1 text-sm';
@@ -751,11 +709,9 @@ function createDynamicGrids() {
       Array.from(new Set([...(fromList||[]), ...(fromMeta||[])])).forEach(v => { const o=document.createElement('option'); o.value=v; o.textContent=v; scSelect.appendChild(o); });
     } catch (_) {}
     scSelect.addEventListener('change', () => { try { window.SUB_FILTERS = window.SUB_FILTERS || {}; window.SUB_FILTERS[key] = scSelect.value; } catch(_){} renderGrid(`grid-${key}`, PARTS[key] || [], key, {}); });
-
-    titleRow.appendChild(title);
-    titleRow.appendChild(scSelect);
-    controlsPanel.appendChild(titleRow);
-
+    subWrap.appendChild(scSelect);
+    controlsPanel.appendChild(subWrap);
+    
     // Create grid
     const grid = document.createElement('div');
     grid.id = `grid-${key}`;
@@ -1101,9 +1057,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       try {
         const skuIdRaw = (document.getElementById('admin-sku-id')?.value || '').trim();
         const skuName = (document.getElementById('admin-sku-name')?.value || '').trim();
-        // Fix mojibake message: validate inputs in Thai before legacy line
-        if (!skuIdRaw && !skuName) { showToast('กรุณากรอกชื่อรุ่นหรือ SKU ID อย่างน้อยหนึ่งช่อง', 'error'); return; }
-        if (!skuIdRaw && !skuName) { showToast('à¸à¸£à¸¸à¸"à¸²à¹ƒà¸ªà¹ˆà¸Šà¸·à¹ˆà¸­à¸£à¸¸à¹ˆà¸™à¸«à¸£à¸·à¸­ SKU ID à¸­à¸¢à¹ˆà¸²à¸‡à¸™à¹‰à¸­à¸¢à¸«à¸™à¸¶à¹ˆà¸‡à¸Šà¹ˆà¸­à¸‡', 'error'); return; }
+        if (!skuIdRaw && !skuName) { showToast('à¸à¸£à¸¸à¸“à¸²à¹ƒà¸ªà¹ˆà¸Šà¸·à¹ˆà¸­à¸£à¸¸à¹ˆà¸™à¸«à¸£à¸·à¸­ SKU ID à¸­à¸¢à¹ˆà¸²à¸‡à¸™à¹‰à¸­à¸¢à¸«à¸™à¸¶à¹ˆà¸‡à¸Šà¹ˆà¸­à¸‡', 'error'); return; }
         const skuKey = sanitizeKey(skuIdRaw || skuName);
         const supa = getSupabaseClient();
         const bucket = window.SUPABASE_BUCKET || 'watch-assets';
@@ -1221,7 +1175,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
       } catch (err) {
         console.error(err);
-        showToast('à¹€à¸à¸´à¸"à¸‚à¹‰à¸­à¸œà¸´à¸"à¸žà¸¥à¸²à¸"à¸‚à¸"à¸°à¸šà¸±à¸™à¸—à¸¶à¸: ' + (err && err.message ? err.message : String(err)), 'error');
+        showToast('à¹€à¸à¸´à¸”à¸‚à¹‰à¸­à¸œà¸´à¸”à¸žà¸¥à¸²à¸”à¸‚à¸“à¸°à¸šà¸±à¸™à¸—à¸¶à¸: ' + (err && err.message ? err.message : String(err)), 'error');
       } finally {
         adminSave.disabled = false;
         adminSave.classList.remove('opacity-70', 'cursor-wait');
@@ -1353,7 +1307,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const row = document.createElement('div');
       row.className = 'flex items-center justify-between gap-2';
       const left = document.createElement('div');
-      left.textContent = `${key} â€" ${parts.__name || ''}`;
+      left.textContent = `${key} â€” ${parts.__name || ''}`;
       const right = document.createElement('div');
       right.className = 'flex items-center gap-2';
       const btnEdit = document.createElement('button');
@@ -1378,7 +1332,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       btnDelete.className = 'px-2 py-1 rounded-md border text-sm bg-red-600 text-white';
       btnDelete.textContent = 'Delete';
       btnDelete.addEventListener('click', async () => {
-        if (!confirm(`ต้องการลบ SKU ${key} และทั้งหมดของสินค้าที่เกี่ยวข้องหายไปหรือไม่?`)) return;
+        if (!confirm(`à¸¥à¸š SKU ${key} à¹à¸¥à¸°à¸—à¸¸à¸à¸ªà¹ˆà¸§à¸™à¸¢à¹ˆà¸­à¸¢?`)) return;
         const supa = getSupabaseClient();
         try {
           if (supa) {
@@ -1417,12 +1371,11 @@ document.addEventListener("DOMContentLoaded", async () => {
           localStorage.setItem('watchCatalog', JSON.stringify(CATALOG));
           await maybeLoadCatalogFromSupabase();
           refreshSkuSelect();
-          if (typeof renderAdminList === 'function') try { renderAdminList(); } catch (_) {}
-          if (typeof refreshSkuTable === 'function') try { refreshSkuTable(); } catch (_) {}
-          showToast('ลบ SKU สำเร็จ', 'success');
+          renderAdminList();
+          showToast('à¸¥à¸š SKU à¸ªà¸³à¹€à¸£à¹‡à¸ˆ', 'success');
         } catch (err) {
           console.error(err);
-          showToast('เกิดข้อผิดพลาด: ' + (err && err.message ? err.message : String(err)), 'error');
+          showToast('à¹„à¸¡à¹ˆà¸ªà¸²à¸¡à¸²à¸£à¸–à¸¥à¸šà¹„à¸”à¹‰: ' + (err && err.message ? err.message : String(err)), 'error');
         }
       });
       right.appendChild(btnEdit);
@@ -1465,7 +1418,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       `<td>${Object.keys(parts || {}).filter(k=>k !== '__name').length}</td>` +
       `<td><div class="flex items-center gap-2">` +
       `<button class="edit-sku btn btn-secondary" data-sku="${key}">âœï¸ à¹à¸à¹‰à¹„à¸‚</button>` +
-      `<button class="pm-open btn btn-secondary" data-sku="${key}">à¸ˆà¸±à¸"à¸à¸²à¸£à¸¥à¸²à¸¢</button>` +
+      `<button class="pm-open btn btn-secondary" data-sku="${key}">à¸ˆà¸±à¸”à¸à¸²à¸£à¸¥à¸²à¸¢</button>` +
       `<button class="del-sku btn-text-danger" data-sku="${key}">à¸¥à¸š SKU</button>` +
       `</div></td>`;
     return tr;
@@ -1597,11 +1550,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       // Create store icon based on store name
       let storeIcon = '';
       if (sku.store_name && sku.store_name.toLowerCase().includes('lazada')) {
-        storeIcon = '<i class="store-icon lazada-icon" title="Lazada">🛒</i>';
+        storeIcon = '<i class="store-icon lazada-icon" title="Lazada">ðŸ›’</i>';
       } else if (sku.store_name && sku.store_name.toLowerCase().includes('shopee')) {
-        storeIcon = '<i class="store-icon shopee-icon" title="Shopee">🛍️</i>';
+        storeIcon = '<i class="store-icon shopee-icon" title="Shopee">ðŸ›ï¸</i>';
       } else {
-        storeIcon = '<i class="store-icon default-icon" title="Store">🏪</i>';
+        storeIcon = '<i class="store-icon default-icon" title="Store">ðŸª</i>';
       }
       
       // Create image thumbnails
@@ -1611,7 +1564,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       
       // Create MCP Supabase status
       const mcpStatus = sku.mcp_supabase_id 
-          ? `<span class="status-badge success">âœ" Synced</span>`
+          ? `<span class="status-badge success">âœ“ Synced</span>`
           : `<span class="status-badge pending">Not synced</span>`;
       
       row.innerHTML = `
@@ -1664,7 +1617,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!editSkuContext) return;
     const newName = editSkuNameInput ? editSkuNameInput.value.trim() : '';
     if (!newName) {
-      showToast('à¸à¸£à¸¸à¸"à¸²à¸à¸£à¸­à¸à¸Šà¸·à¹ˆà¸­ SKU', 'error');
+      showToast('à¸à¸£à¸¸à¸“à¸²à¸à¸£à¸­à¸à¸Šà¸·à¹ˆà¸­ SKU', 'error');
       return;
     }
 
@@ -1699,7 +1652,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     } catch (e) {
       console.error(e);
-      showToast('à¹€à¸à¸´à¸"à¸‚à¹‰à¸­à¸œà¸´à¸"à¸žà¸¥à¸²à¸"à¸‚à¸"à¸°à¸šà¸±à¸™à¸—à¸¶à¸: ' + (e && e.message ? e.message : String(e)), 'error');
+      showToast('à¹€à¸à¸´à¸”à¸‚à¹‰à¸­à¸œà¸´à¸”à¸žà¸¥à¸²à¸”: ' + (e && e.message ? e.message : String(e)), 'error');
     }
   }
 
@@ -1805,7 +1758,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const newLabel = editPatternNameInput ? editPatternNameInput.value.trim() : '';
     
     if (!newLabel) {
-      showToast('à¸à¸£à¸¸à¸"à¸²à¸à¸£à¸­à¸à¸Šà¸·à¹ˆà¸­à¸¥à¸²à¸¢', 'error');
+      showToast('à¸à¸£à¸¸à¸“à¸²à¸à¸£à¸­à¸à¸Šà¸·à¹ˆà¸­à¸¥à¸²à¸¢', 'error');
       return;
     }
 
@@ -1860,7 +1813,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     } catch (e) {
       console.error(e);
-      showToast('à¹€à¸à¸´à¸"à¸‚à¹‰à¸­à¸œà¸´à¸"à¸žà¸¥à¸²à¸"à¸‚à¸"à¸°à¸¥à¸š: ' + (e && e.message ? e.message : String(e)), 'error');
+      showToast('à¹€à¸à¸´à¸”à¸‚à¹‰à¸­à¸œà¸´à¸”à¸žà¸¥à¸²à¸”: ' + (e && e.message ? e.message : String(e)), 'error');
     }
   }
 
@@ -1900,13 +1853,19 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Menu switching
   if (menuPartGroups) {
     menuPartGroups.addEventListener('click', () => {
-      // Use common panel switcher to avoid panels sticking
-      setActiveMenu(menuPartGroups);
-      showPanel(panelPartGroups);
-
-      // Set Thai header title for Part Groups
-      try { const h = document.querySelector('.header-title h1'); if (h) h.textContent = 'จัดการกลุ่มชิ้นส่วน'; } catch (_) {}
-
+      // Hide all panels
+      if (panelSkuList) panelSkuList.classList.add('hidden');
+      if (panelSku) panelSku.classList.add('hidden');
+      if (panelPartGroups) panelPartGroups.classList.remove('hidden');
+      
+      // Update active menu
+      document.querySelectorAll('.nav-button').forEach(btn => btn.classList.remove('active'));
+      menuPartGroups.classList.add('active');
+      
+      // Update header title
+      const headerTitle = document.querySelector('.header-title h1');
+      if (headerTitle) headerTitle.textContent = 'à¸ˆà¸±à¸”à¸à¸²à¸£ Part Groups';
+      
       // Refresh table
       refreshPartGroupsTable();
     });
@@ -1915,11 +1874,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   async function refreshPartGroupsTable() {
     if (!partGroupsTableBody) return;
     
-    partGroupsTableBody.innerHTML = '<tr><td colspan="6" class="text-center">กำลังโหลด...</td></tr>';
+    partGroupsTableBody.innerHTML = '<tr><td colspan="6" class="text-center">à¸à¸³à¸¥à¸±à¸‡à¹‚à¸«à¸¥à¸”...</td></tr>';
     
     const supa = getSupabaseClient();
     if (!supa) {
-      partGroupsTableBody.innerHTML = '<tr><td colspan="6" class="text-center text-red-600">ไม่สามารถเชื่อมต่อ Supabase</td></tr>';
+      partGroupsTableBody.innerHTML = '<tr><td colspan="6" class="text-center text-red-600">à¹„à¸¡à¹ˆà¸ªà¸²à¸¡à¸²à¸£à¸–à¹€à¸Šà¸·à¹ˆà¸­à¸¡à¸•à¹ˆà¸­ Supabase</td></tr>';
       return;
     }
     
@@ -1927,12 +1886,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       const { data, error } = await supa
         .from('part_groups')
         .select('*')
-        .order('z_index', { ascending: true }); // เรียงตาม Layer จากล่างขึ้นบน
+        .order('z_index', { ascending: true }); // à¹€à¸£à¸µà¸¢à¸‡à¸•à¸²à¸¡ Layer à¸ˆà¸²à¸à¸¥à¹ˆà¸²à¸‡à¹„à¸›à¸šà¸™
       
       if (error) throw error;
       
       if (!data || data.length === 0) {
-        partGroupsTableBody.innerHTML = '<tr><td colspan="6" class="text-center">ไม่มีข้อมูล</td></tr>';
+        partGroupsTableBody.innerHTML = '<tr><td colspan="6" class="text-center">à¹„à¸¡à¹ˆà¸¡à¸µà¸‚à¹‰à¸­à¸¡à¸¹à¸¥</td></tr>';
         return;
       }
       
@@ -1947,7 +1906,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         tr.innerHTML = `
           <td>
             <div class="flex items-center gap-2">
-              <span class="material-symbols-outlined text-gray-400" style="cursor: move;">drag_indicator</span>
+              <span class="text-gray-400" style="cursor: move;">â‹®â‹®</span>
               <code class="bg-gray-100 px-2 py-1 rounded">${pg.key}</code>
             </div>
           </td>
@@ -1957,8 +1916,8 @@ document.addEventListener("DOMContentLoaded", async () => {
           <td class="text-center font-bold">${pg.z_index || '-'}</td>
           <td>
             <div class="flex items-center gap-2">
-              <button class="edit-part-group btn btn-secondary text-sm" data-key="${pg.key}" title="แก้ไข"><span class="material-symbols-outlined">edit</span></button>
-              <button class="delete-part-group btn-text-danger text-sm" data-key="${pg.key}" title="ลบ"><span class="material-symbols-outlined">delete</span></button>
+              <button class="edit-part-group btn btn-secondary text-sm" data-key="${pg.key}">âœï¸ à¹à¸à¹‰à¹„à¸‚</button>
+              <button class="delete-part-group btn-text-danger text-sm" data-key="${pg.key}">à¸¥à¸š</button>
             </div>
           </td>
         `;
@@ -1968,6 +1927,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         tr.addEventListener('dragover', handleDragOver);
         tr.addEventListener('drop', handleDrop);
         tr.addEventListener('dragend', handleDragEnd);
+        tr.addEventListener('dragenter', handleDragEnter);
+        tr.addEventListener('dragleave', handleDragLeave);
         
         partGroupsTableBody.appendChild(tr);
       });
@@ -1990,13 +1951,13 @@ document.addEventListener("DOMContentLoaded", async () => {
       
     } catch (e) {
       console.error(e);
-      partGroupsTableBody.innerHTML = `<tr><td colspan="6" class="text-center text-red-600">เกิดข้อผิดพลาด: ${e.message}</td></tr>`;
+      partGroupsTableBody.innerHTML = `<tr><td colspan="6" class="text-center text-red-600">à¹€à¸à¸´à¸”à¸‚à¹‰à¸­à¸œà¸´à¸”à¸žà¸¥à¸²à¸”: ${e.message}</td></tr>`;
     }
   }
 
   async function openAddPartGroupModal() {
     editingPartGroupKey = null;
-    if (partGroupModalTitle) partGroupModalTitle.textContent = 'เพิ่ม Part Group ใหม่';
+    if (partGroupModalTitle) partGroupModalTitle.textContent = 'à¹€à¸žà¸´à¹ˆà¸¡ Part Group à¹ƒà¸«à¸¡à¹ˆ';
     if (pgNameEn) pgNameEn.value = '';
     if (pgNameTh) pgNameTh.value = '';
     if (pgKey) { pgKey.value = ''; pgKey.readOnly = false; }
@@ -2032,12 +1993,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
       } catch (e) {
         console.error('Error getting max values:', e);
-        // Default values on error
         if (pgSortOrder) pgSortOrder.value = '1';
         if (pgZIndex) pgZIndex.value = '1';
       }
     } else {
-      // Default values if no Supabase connection
+      // Fallback if no Supabase connection
       if (pgSortOrder) pgSortOrder.value = '1';
       if (pgZIndex) pgZIndex.value = '1';
     }
@@ -2047,11 +2007,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   async function openEditPartGroupModal(key) {
     editingPartGroupKey = key;
-    if (partGroupModalTitle) partGroupModalTitle.textContent = 'แก้ไข Part Group';
+    if (partGroupModalTitle) partGroupModalTitle.textContent = 'à¹à¸à¹‰à¹„à¸‚ Part Group';
     
     const supa = getSupabaseClient();
     if (!supa) {
-      showToast('ไม่สามารถเชื่อมต่อ Supabase', 'error');
+      showToast('à¹„à¸¡à¹ˆà¸ªà¸²à¸¡à¸²à¸£à¸–à¹€à¸Šà¸·à¹ˆà¸­à¸¡à¸•à¹ˆà¸­ Supabase', 'error');
       return;
     }
     
@@ -2064,18 +2024,16 @@ document.addEventListener("DOMContentLoaded", async () => {
       
       if (error) throw error;
       
-      if (data) {
-        if (pgNameEn) pgNameEn.value = data.name_en || '';
-        if (pgNameTh) pgNameTh.value = data.name_th || '';
-        if (pgKey) { pgKey.value = data.key || ''; pgKey.readOnly = true; }
-        if (pgSortOrder) pgSortOrder.value = data.sort_order || '1';
-        if (pgZIndex) pgZIndex.value = data.z_index || '1';
-      }
-      
+      if (pgNameEn) pgNameEn.value = data.name_en || '';
+      if (pgNameTh) pgNameTh.value = data.name_th || '';
+      if (pgKey) { pgKey.value = data.key || ''; pgKey.readOnly = true; }
+      if (pgSortOrder) pgSortOrder.value = data.sort_order || 1;
+      if (pgZIndex) pgZIndex.value = data.z_index || 1;
       if (partGroupModal) partGroupModal.classList.remove('hidden');
+      
     } catch (e) {
       console.error(e);
-      showToast('ไม่สามารถโหลดข้อมูล: ' + e.message, 'error');
+      showToast('à¹„à¸¡à¹ˆà¸ªà¸²à¸¡à¸²à¸£à¸–à¹‚à¸«à¸¥à¸”à¸‚à¹‰à¸­à¸¡à¸¹à¸¥: ' + e.message, 'error');
     }
   }
 
@@ -2097,13 +2055,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     const zIndex = pgZIndex ? parseInt(pgZIndex.value) : 1;
     
     if (!nameEn || !nameTh || !key) {
-      showToast('กรุณากรอกข้อมูลให้ครบถ้วน', 'error');
+      showToast('à¸à¸£à¸¸à¸“à¸²à¸à¸£à¸­à¸à¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¹ƒà¸«à¹‰à¸„à¸£à¸šà¸–à¹‰à¸§à¸™', 'error');
       return;
     }
     
     const supa = getSupabaseClient();
     if (!supa) {
-      showToast('ไม่สามารถเชื่อมต่อ Supabase', 'error');
+      showToast('à¹„à¸¡à¹ˆà¸ªà¸²à¸¡à¸²à¸£à¸–à¹€à¸Šà¸·à¹ˆà¸­à¸¡à¸•à¹ˆà¸­ Supabase', 'error');
       return;
     }
     
@@ -2129,7 +2087,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           .eq('key', editingPartGroupKey);
         
         if (error) throw error;
-        showToast('แก้ไข Part Group สำเร็จ', 'success');
+        showToast('à¹à¸à¹‰à¹„à¸‚ Part Group à¸ªà¸³à¹€à¸£à¹‡à¸ˆ', 'success');
       } else {
         // Insert new
         const { error } = await supa
@@ -2137,7 +2095,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           .insert([data]);
         
         if (error) throw error;
-        showToast('เพิ่ม Part Group สำเร็จ', 'success');
+        showToast('à¹€à¸žà¸´à¹ˆà¸¡ Part Group à¸ªà¸³à¹€à¸£à¹‡à¸ˆ', 'success');
       }
       
       closePartGroupModal();
@@ -2151,18 +2109,18 @@ document.addEventListener("DOMContentLoaded", async () => {
       
     } catch (e) {
       console.error(e);
-      showToast('เกิดข้อผิดพลาด: ' + (e.message || String(e)), 'error');
+      showToast('à¹€à¸à¸´à¸”à¸‚à¹‰à¸­à¸œà¸´à¸”à¸žà¸¥à¸²à¸”: ' + (e.message || String(e)), 'error');
     }
   }
 
   async function deletePartGroup(key) {
-    if (!confirm(`ต้องการลบ Part Group "${key}" ใช่หรือไม่?\n\n⚠️ คำเตือน: การลบจะทำให้ข้อมูลทั้งหมดที่เกี่ยวข้องหายไป`)) {
+    if (!confirm(`à¸•à¹‰à¸­à¸‡à¸à¸²à¸£à¸¥à¸š Part Group "${key}" à¹ƒà¸Šà¹ˆà¸«à¸£à¸·à¸­à¹„à¸¡à¹ˆ?\n\nâš ï¸ à¸„à¸³à¹€à¸•à¸·à¸­à¸™: à¸à¸²à¸£à¸¥à¸šà¸ˆà¸°à¸—à¸³à¹ƒà¸«à¹‰à¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸—à¸±à¹‰à¸‡à¸«à¸¡à¸”à¸—à¸µà¹ˆà¹€à¸à¸µà¹ˆà¸¢à¸§à¸‚à¹‰à¸­à¸‡à¸«à¸²à¸¢à¹„à¸›`)) {
       return;
     }
     
     const supa = getSupabaseClient();
     if (!supa) {
-      showToast('ไม่สามารถเชื่อมต่อ Supabase', 'error');
+      showToast('à¹„à¸¡à¹ˆà¸ªà¸²à¸¡à¸²à¸£à¸–à¹€à¸Šà¸·à¹ˆà¸­à¸¡à¸•à¹ˆà¸­ Supabase', 'error');
       return;
     }
     
@@ -2177,7 +2135,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (assetsError) throw assetsError;
       
       if (assets && assets.length > 0) {
-        if (!confirm(`พบข้อมูล ${assets.length} รายการที่ใช้ Part Group นี้\n\nต้องการลบทั้งหมดใช่หรือไม่?`)) {
+        if (!confirm(`à¸žà¸šà¸‚à¹‰à¸­à¸¡à¸¹à¸¥ ${assets.length} à¸£à¸²à¸¢à¸à¸²à¸£à¸—à¸µà¹ˆà¹ƒà¸Šà¹‰ Part Group à¸™à¸µà¹‰\n\nà¸•à¹‰à¸­à¸‡à¸à¸²à¸£à¸¥à¸šà¸—à¸±à¹‰à¸‡à¸«à¸¡à¸”à¹ƒà¸Šà¹ˆà¸«à¸£à¸·à¸­à¹„à¸¡à¹ˆ?`)) {
           return;
         }
         
@@ -2198,7 +2156,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       
       if (error) throw error;
       
-      showToast('ลบ Part Group สำเร็จ', 'success');
+      showToast('à¸¥à¸š Part Group à¸ªà¸³à¹€à¸£à¹‡à¸ˆ', 'success');
       
       // Reload part groups and refresh UI
       await loadPartGroups(supa);
@@ -2209,7 +2167,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       
     } catch (e) {
       console.error(e);
-      showToast('เกิดข้อผิดพลาด: ' + (e.message || String(e)), 'error');
+      showToast('à¹€à¸à¸´à¸”à¸‚à¹‰à¸­à¸œà¸´à¸”à¸žà¸¥à¸²à¸”: ' + (e.message || String(e)), 'error');
     }
   }
 
@@ -2282,7 +2240,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const supa = getSupabaseClient();
     
     if (!supa) {
-      showToast('ไม่สามารถเชื่อมต่อ Supabase', 'error');
+      showToast('à¹„à¸¡à¹ˆà¸ªà¸²à¸¡à¸²à¸£à¸–à¹€à¸Šà¸·à¹ˆà¸­à¸¡à¸•à¹ˆà¸­ Supabase', 'error');
       return;
     }
     
@@ -2313,7 +2271,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         row.dataset.zIndex = index + 1;
       });
       
-      showToast('อัปเดตลำดับ Layer สำเร็จ', 'success');
+      showToast('à¸­à¸±à¸›à¹€à¸”à¸•à¸¥à¸³à¸”à¸±à¸š Layer à¸ªà¸³à¹€à¸£à¹‡à¸ˆ', 'success');
       
       // Reload part groups in background (don't refresh table to avoid re-sorting)
       await loadPartGroups(supa);
@@ -2323,7 +2281,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       
     } catch (e) {
       console.error(e);
-      showToast('เกิดข้อผิดพลาด: ' + (e.message || String(e)), 'error');
+      showToast('à¹€à¸à¸´à¸”à¸‚à¹‰à¸­à¸œà¸´à¸”à¸žà¸¥à¸²à¸”: ' + (e.message || String(e)), 'error');
       refreshPartGroupsTable(); // Refresh to restore original order only on error
     }
   }
@@ -2403,7 +2361,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       wrap.className = 'relative cursor-move border border-transparent hover:border-gray-300 rounded';
       wrap.draggable = true;
       try { wrap.dataset.url = normalizeUrl(url || ''); } catch (_) { wrap.dataset.url = url || ''; }
-      const img = document.createElement('img'); img.src = url; img.className = 'w-full h-40 md:h-44 lg:h-48 object-contain select-none pointer-events-none';
+      const img = document.createElement('img'); img.src = url; img.className = 'w-full h-36 object-contain select-none pointer-events-none';
       
       // Edit button
       const edit = document.createElement('button'); 
@@ -2473,7 +2431,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             
             if (!refreshSuccess) {
               console.error('Failed to refresh catalog after deletion');
-              showToast('à¸„à¸³à¹€à¸•à¸·à¸­à¸™: à¹„à¸¡à¹ˆà¸ªà¸²à¸¡à¸²à¸£à¸–à¹‚à¸«à¸¥à¸"à¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¹ƒà¸«à¸¡à¹ˆ à¸à¸£à¸¸à¸" refresh à¸«à¸™à¹‰à¸²à¹€à¸§à¹‡à¸š', 'error');
+              showToast('à¸„à¸³à¹€à¸•à¸·à¸­à¸™: à¹„à¸¡à¹ˆà¸ªà¸²à¸¡à¸²à¸£à¸–à¹‚à¸«à¸¥à¸”à¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¹ƒà¸«à¸¡à¹ˆ à¸à¸£à¸¸à¸“à¸² refresh à¸«à¸™à¹‰à¸²à¹€à¸§à¹‡à¸š', 'error');
               // Don't proceed if refresh failed
               return;
             }
@@ -2532,7 +2490,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           }
         } catch (e) { 
           console.error(e); 
-          showToast('à¹€à¸à¸´à¸"à¸‚à¹‰à¸­à¸œà¸´à¸"à¸žà¸¥à¸²à¸"à¸‚à¸"à¸°à¸¥à¸š: ' + (e && e.message ? e.message : String(e)), 'error'); 
+          showToast('à¹€à¸à¸´à¸”à¸‚à¹‰à¸­à¸œà¸´à¸”à¸žà¸¥à¸²à¸”à¸‚à¸“à¸°à¸¥à¸š: ' + (e && e.message ? e.message : String(e)), 'error'); 
           del.disabled = false;
           del.textContent = 'à¸¥à¸š';
         }
@@ -2540,7 +2498,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       
       // Add label text below the image
       const labelDiv = document.createElement('div');
-      labelDiv.className = 'text-center text-xs font-medium text-gray-600 mt-2 px-1 truncate';
+      labelDiv.className = 'text-center text-sm font-medium text-gray-700 mt-2 px-1 truncate';
       labelDiv.textContent = it.label || 'à¹„à¸¡à¹ˆà¸¡à¸µà¸Šà¸·à¹ˆà¸­';
       labelDiv.title = it.label || 'à¹„à¸¡à¹ˆà¸¡à¸µà¸Šà¸·à¹ˆà¸­'; // Show full name on hover
       
@@ -2550,7 +2508,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const metaFor = getAssetMeta(url) || {}; const sc = metaFor.subcategory || '';
         labelDiv.textContent = (it.label || '...') + (sc ? ` Â· ${sc}` : '');
         const scSel = document.createElement('select');
-        scSel.className = 'mt-2 w-full bg-white border border-gray-300 rounded text-xs px-2 py-1';
+        scSel.className = 'absolute bottom-1 left-1 right-1 bg-white/80 border border-gray-300 rounded text-xs px-1 py-0.5';
         const gList = Array.from(new Set([...(getSubcatList(modalContextSku, g)||[]), ...(unionSubcatsFromMeta(modalContextSku, g)||[])]));
         const optNone = document.createElement('option'); optNone.value=''; optNone.textContent='(no subcategory)'; scSel.appendChild(optNone);
         gList.forEach(v=>{ const o=document.createElement('option'); o.value=v; o.textContent=v; scSel.appendChild(o); });
@@ -2635,12 +2593,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     try {
       pmAddBtn.disabled = true;
       pmAddBtn.classList.add('opacity-70', 'cursor-wait');
-      pmAddBtn.textContent = 'à¸à¸³à¸¥à¸±à¸‡à¸­à¸±à¸›à¹‚à¸«à¸¥à¸"...';
+      pmAddBtn.textContent = 'à¸à¸³à¸¥à¸±à¸‡à¸­à¸±à¸›à¹‚à¸«à¸¥à¸”...';
 
       const files = pmFiles && pmFiles.files ? Array.from(pmFiles.files) : [];
-      if (!files.length) { showToast('à¹‚à¸›à¸£à¸"à¹€à¸¥à¸·à¸­à¸à¹„à¸Ÿà¸¥à¹Œà¸à¹ˆà¸­à¸™', 'error'); return; }
+      if (!files.length) { showToast('à¹‚à¸›à¸£à¸”à¹€à¸¥à¸·à¸­à¸à¹„à¸Ÿà¸¥à¹Œà¸à¹ˆà¸­à¸™', 'error'); return; }
       const g = pmGroupSelect ? pmGroupSelect.value : null;
-      if (!g) { showToast('à¹‚à¸›à¸£à¸"à¹€à¸¥à¸·à¸­à¸à¸à¸¥à¸¸à¹ˆà¸¡', 'error'); return; }
+      if (!g) { showToast('à¹‚à¸›à¸£à¸”à¹€à¸¥à¸·à¸­à¸à¸à¸¥à¸¸à¹ˆà¸¡', 'error'); return; }
       const supa = getSupabaseClient();
       if (supa) {
         const bucket = window.SUPABASE_BUCKET || 'watch-assets';
@@ -2681,7 +2639,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           if (pmFiles) pmFiles.value = '';
         } catch (err) {
           console.error(err);
-          showToast('à¹„à¸¡à¹ˆà¸ªà¸²à¸¡à¸²à¸£à¸–à¸­à¸±à¸›à¹‚à¸«à¸¥à¸"à¹„à¸"à¹‰: ' + (err && err.message ? err.message : ''), 'error');
+          showToast('à¹„à¸¡à¹ˆà¸ªà¸²à¸¡à¸²à¸£à¸–à¸­à¸±à¸›à¹‚à¸«à¸¥à¸”à¹„à¸”à¹‰: ' + (err && err.message ? err.message : ''), 'error');
           // Clear file input as well to reduce confusion
           if (pmFiles) pmFiles.value = '';
         }
@@ -2853,7 +2811,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // initialize on load
   updateSkuPreview();
 
-  // Always keep SKU ID fixed once generated â€" make readonly to prevent accidental changes
+  // Always keep SKU ID fixed once generated â€” make readonly to prevent accidental changes
   if (skuIdInput) {
     skuIdInput.readOnly = true;
   }
@@ -2890,10 +2848,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       
       // Update header title
       const headerTitle = document.querySelector('.header-title h1');
-      if (headerTitle) headerTitle.textContent = 'à¸ˆà¸±à¸"à¸à¸²à¸£ SKU';
+      if (headerTitle) headerTitle.textContent = 'à¸ˆà¸±à¸”à¸à¸²à¸£ SKU';
       
-      // Fix Thai header title for SKU list
-      try { const h = document.querySelector('.header-title h1'); if (h) h.textContent = '\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23 SKU'; } catch (_) {}
       // Refresh SKU table
       refreshSkuTable();
     });
@@ -2935,7 +2891,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const skuKey = adminSelectSku ? adminSelectSku.value : null;
       const groupKey = adminSelectGroup ? adminSelectGroup.value : null;
       const files = addPartFiles && addPartFiles.files ? Array.from(addPartFiles.files) : [];
-      if (!skuKey || !groupKey || files.length === 0) { showToast('à¸à¸£à¸¸à¸"à¸²à¹€à¸¥à¸·à¸­à¸ SKU, à¸à¸¥à¸¸à¹ˆà¸¡ à¹à¸¥à¸° à¹„à¸Ÿà¸¥à¹Œ', 'error'); return; }
+      if (!skuKey || !groupKey || files.length === 0) { showToast('à¸à¸£à¸¸à¸“à¸²à¹€à¸¥à¸·à¸­à¸ SKU, à¸à¸¥à¸¸à¹ˆà¸¡ à¹à¸¥à¸° à¹„à¸Ÿà¸¥à¹Œ', 'error'); return; }
       // If Supabase is configured, upload files to storage and insert asset rows
       const supa = getSupabaseClient();
       const bucket = window.SUPABASE_BUCKET || 'watch-assets';
@@ -2973,7 +2929,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           showToast('à¹€à¸žà¸´à¹ˆà¸¡à¸¥à¸²à¸¢à¸ªà¸³à¹€à¸£à¹‡à¸ˆ (Supabase)', 'success');
         } catch (err) {
           console.error(err);
-          showToast('à¹„à¸¡à¹ˆà¸ªà¸²à¸¡à¸²à¸£à¸–à¸­à¸±à¸›à¹‚à¸«à¸¥à¸"à¹„à¸› Supabase: ' + (err && err.message ? err.message : String(err)), 'error');
+          showToast('à¹„à¸¡à¹ˆà¸ªà¸²à¸¡à¸²à¸£à¸–à¸­à¸±à¸›à¹‚à¸«à¸¥à¸”à¹„à¸› Supabase: ' + (err && err.message ? err.message : String(err)), 'error');
         }
       } else {
         // fallback local storage behavior
@@ -3033,7 +2989,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const ts = new Date().toISOString().replace(/[:.]/g,'-');
         a.download = `${currentSKU}-${ts}.png`;
         document.body.appendChild(a); a.click(); a.remove();
-      } catch (e) { alert('à¹„à¸¡à¹ˆà¸ªà¸²à¸¡à¸²à¸£à¸–à¸šà¸±à¸™à¸—à¸¶à¸à¸£à¸¹à¸›à¹„à¸"à¹‰'); }
+      } catch (e) { alert('à¹„à¸¡à¹ˆà¸ªà¸²à¸¡à¸²à¸£à¸–à¸šà¸±à¸™à¸—à¸¶à¸à¸£à¸¹à¸›à¹„à¸”à¹‰'); }
     });
   }
 
@@ -3113,7 +3069,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const name_en = (gamNewNameEnInput.value || '').trim();
 
         if (!key || !name_th || !name_en) {
-            showToast('à¸à¸£à¸¸à¸"à¸²à¸à¸£à¸­à¸à¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸žà¸²à¸—à¹ƒà¸«à¸¡à¹ˆà¹ƒà¸«à¹‰à¸„à¸£à¸šà¸—à¸¸à¸à¸Šà¹ˆà¸­à¸‡', 'error');
+            showToast('à¸à¸£à¸¸à¸“à¸²à¸à¸£à¸­à¸à¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸žà¸²à¸—à¹ƒà¸«à¸¡à¹ˆà¹ƒà¸«à¹‰à¸„à¸£à¸šà¸—à¸¸à¸à¸Šà¹ˆà¸­à¸‡', 'error');
             return;
         }
 
@@ -3150,7 +3106,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             openGroupAddModal();
         } catch (err) {
             console.error('Error adding new part group:', err);
-            showToast('à¹€à¸à¸´à¸"à¸‚à¹‰à¸­à¸œà¸´à¸"à¸žà¸¥à¸²à¸"à¸‚à¸"à¸°à¸¥à¸š: ' + err.message, 'error');
+            showToast('à¹€à¸à¸´à¸”à¸‚à¹‰à¸­à¸œà¸´à¸”à¸žà¸¥à¸²à¸”: ' + err.message, 'error');
         }
     });
   }
@@ -3477,61 +3433,92 @@ async function composePreviewPNG({ watermark = '' } = {}) {
     ctx.restore();
   }
 
-  // watermark image
+  // watermark image from local folder (optional)
   try {
-    // Read saved settings once
+    if (WATERMARK_IMAGE) {
+      const pad = Math.round(baseW * 0.02);
+      const wimg = await loadImage(WATERMARK_IMAGE);
+      const maxW = Math.round(baseW * 0.35);
+      const scale = Math.min(1, maxW / (wimg.naturalWidth || maxW));
+      const w = Math.round((wimg.naturalWidth || maxW) * scale);
+      const h = Math.round((wimg.naturalHeight || maxW) * scale);
+      ctx.save();
+      ctx.globalAlpha = 0.18;
+      ctx.drawImage(wimg, baseW - w - pad, baseH - h - pad, w, h);
+      ctx.restore();
+    }
+  } catch (e) { /* ignore drawing errors */ }
+
+  // watermark image (optional)
+  try {
+    // Try to get watermark from profile settings first, then fall back to default
     const savedWatermarkUrl = localStorage.getItem('watchWatermarkUrl');
     const savedWatermarkOpacity = localStorage.getItem('watchWatermarkOpacity');
     const savedWatermarkPosition = localStorage.getItem('watchWatermarkPosition');
     const savedWatermarkSize = localStorage.getItem('watchWatermarkSize');
-
-    // Prefer user-set watermark; fall back to default constant
+    
     const watermarkUrl = savedWatermarkUrl || WATERMARK_IMAGE;
     if (watermarkUrl) {
       const wimg = await loadImage(watermarkUrl);
       const opacity = savedWatermarkOpacity ? parseFloat(savedWatermarkOpacity) : 0.5;
       const size = savedWatermarkSize ? parseInt(savedWatermarkSize) : 100;
-
+      
       ctx.save();
       ctx.globalAlpha = opacity;
-
+      
       // Calculate position based on saved setting - use the same logic as in preview
       let x, y;
-
+      
       // Check if it's a custom position
       if (savedWatermarkPosition && savedWatermarkPosition.startsWith('custom:')) {
+        // Extract the x and y percentages from the custom position
         const parts = savedWatermarkPosition.split(':');
         if (parts.length === 3) {
           const xPercent = parseFloat(parts[1]) / 100;
           const yPercent = parseFloat(parts[2]) / 100;
+          
+          // Calculate position based on percentage
           x = (baseW * xPercent) - (size / 2);
           y = (baseH * yPercent) - (size / 2);
         } else {
+          // Fallback to bottom-right
           x = baseW - size - 10;
           y = baseH - size - 10;
         }
       } else {
-        const padding = 10;
+        // Use predefined positions
+        const padding = 10; // Use the same padding as in preview
+        
         switch (savedWatermarkPosition) {
           case 'top-left':
-            x = padding; y = padding; break;
+            x = padding;
+            y = padding;
+            break;
           case 'top-right':
-            x = baseW - size - padding; y = padding; break;
+            x = baseW - size - padding;
+            y = padding;
+            break;
           case 'bottom-left':
-            x = padding; y = baseH - size - padding; break;
+            x = padding;
+            y = baseH - size - padding;
+            break;
           case 'center':
-            x = (baseW - size) / 2; y = (baseH - size) / 2; break;
+            x = (baseW - size) / 2;
+            y = (baseH - size) / 2;
+            break;
           case 'bottom-right':
           default:
-            x = baseW - size - padding; y = baseH - size - padding; break;
+            x = baseW - size - padding;
+            y = baseH - size - padding;
+            break;
         }
       }
-
+      
       // Draw watermark with specified size
       ctx.drawImage(wimg, x, y, size, size * (wimg.naturalHeight / wimg.naturalWidth));
       ctx.restore();
     }
-  } catch (e) { /* ignore drawing errors */ }
+  } catch (e) { /* ignore */ }
 
   return canvas.toDataURL('image/png');
 }
@@ -3919,12 +3906,4 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize watermark drag functionality
   if (window.initWatermarkDrag) window.initWatermarkDrag();
 });
-
-
-
-
-
-
-
-
 

@@ -1,0 +1,340 @@
+
+  syncHeights();
+  window.addEventListener("resize", syncHeights);
+  queueHeightSyncOnImages();
+
+  // --- Anti-copy deterrents on the main page preview (index only) ---
+  try {
+    if (document.getElementById('preview')) {
+      // Disable context menu (outside of inputs) on index page
+      document.addEventListener('contextmenu', (e) => {
+        const tag = (e.target && e.target.tagName || '').toLowerCase();
+        if (tag === 'input' || tag === 'textarea') return;
+        e.preventDefault();
+      });
+      // Prevent dragging images in preview area
+      document.addEventListener('dragstart', (e) => {
+        const t = e.target;
+        if (t && t.tagName === 'IMG' && t.closest('#zoom-inner')) { e.preventDefault(); }
+      });
+      // Reduce long-press save on mobile (CSS handles most)
+      document.addEventListener('touchstart', (e) => {
+        const t = e.target;
+        if (t && t.closest && t.closest('#zoom-inner')) { /* noop */ }
+      }, { passive: true });
+    }
+  } catch (_) { /* ignore */ }
+
+  // Buttons
+  const btnReset = $("btn-reset");
+  if (btnReset) {
+    btnReset.addEventListener("click", () => {
+      // Reset all groups to index 0
+      Object.keys(PARTS || {}).forEach(key => {
+        if (key !== '__name') state[key] = 0;
+      });
+      // Re-render all grids
+      Object.keys(PARTS || {}).forEach(key => {
+        if (key === '__name') return;
+        const items = PARTS[key];
+        if (Array.isArray(items) && items.length > 0) {
+          renderGrid(`grid-${key}`, items, key, state);
+        }
+      });
+      applySelections(state);
+    });
+  }
+
+  const btnRandom = $("btn-random");
+  if (btnRandom) {
+    btnRandom.addEventListener("click", () => {
+      // Randomize all groups
+      const randIdx = (arr) => Math.floor(Math.random() * arr.length);
+      Object.keys(PARTS || {}).forEach(key => {
+        if (key !== '__name' && Array.isArray(PARTS[key]) && PARTS[key].length > 0) {
+          state[key] = randIdx(PARTS[key]);
+        }
+      });
+      // Re-render all grids
+      Object.keys(PARTS || {}).forEach(key => {
+        if (key === '__name') return;
+        const items = PARTS[key];
+        if (Array.isArray(items) && items.length > 0) {
+          renderGrid(`grid-${key}`, items, key, state);
+        }
+      });
+      applySelections(state);
+    });
+  }
+
+  // Modal bindings
+  const modalClose = $("modal-close");
+  if (modalClose) modalClose.addEventListener("click", closeModal);
+  const imageModal = $("image-modal");
+  if (imageModal) {
+    imageModal.addEventListener("click", (e) => {
+      if (e.target && e.target.id === "image-modal") closeModal();
+    });
+  }
+  const modalSelect = $("modal-select");
+  if (modalSelect) {
+    modalSelect.addEventListener("click", () => {
+      if (modalContext.groupKey == null) return closeModal();
+      // apply chosen
+      state[modalContext.groupKey] = modalContext.index;
+      applySelections(state);
+      // re-render group for selection state
+      renderGrid(
+        `grid-${modalContext.groupKey}`,
+        PARTS[modalContext.groupKey],
+        modalContext.groupKey,
+        state
+      );
+      closeModal();
+    });
+  }
+
+  // Mobile overlay controls
+  const openMobile = $("open-mobile");
+  const closeMobile = $("close-mobile");
+  const mobileOverlay = $("mobile-overlay");
+  if (openMobile && closeMobile && mobileOverlay) {
+    openMobile.addEventListener("click", () => {
+      mobileOverlay.classList.remove("hidden");
+      const drawer = document.getElementById("mobile-drawer");
+      if (drawer) {
+        // start off-screen then animate in
+        requestAnimationFrame(() => {
+          drawer.style.transform = "translateX(0)";
+        });
+      }
+    });
+    closeMobile.addEventListener("click", () => {
+      const drawer = document.getElementById("mobile-drawer");
+      if (drawer) drawer.style.transform = "translateX(-100%)";
+      setTimeout(() => mobileOverlay.classList.add("hidden"), 300);
+    });
+    mobileOverlay.addEventListener("click", (e) => {
+      if (e.target && e.target.id === "mobile-backdrop") {
+        const drawer = document.getElementById("mobile-drawer");
+        if (drawer) drawer.style.transform = "translateX(-100%)";
+        setTimeout(() => mobileOverlay.classList.add("hidden"), 300);
+      }
+    });
+  }
+
+  // Zoom controls (desktop)
+  const zoomInner = $("zoom-inner");
+  const zoomInBtn = $("zoom-in");
+  const zoomOutBtn = $("zoom-out");
+  const zoomResetBtn = $("zoom-reset");
+  function applyZoom() {
+    if (!zoomInner) return;
+    // Keep horizontally centered but align to the top vertically
+    zoomInner.style.transformOrigin = 'center top';
+    zoomInner.style.transform = `scale(${zoom})`;
+    if (zoomOutBtn) zoomOutBtn.disabled = zoom <= MIN_ZOOM + 1e-6;
+    if (zoomInBtn) zoomInBtn.disabled = zoom >= MAX_ZOOM - 1e-6;
+    if (zoomResetBtn) {
+      const pct = Math.round(zoom * 100);
+      zoomResetBtn.textContent = `${pct}%`;
+      zoomResetBtn.title = 'Reset zoom to fit';
+    }
+  }
+  // expose helpers so other functions can reset to fit
+  window.__applyZoom = applyZoom;
+  window.__resetZoomToFit = function() { zoom = 1; applyZoom(); };
+  if (zoomInBtn) {
+    zoomInBtn.addEventListener('click', () => {
+      zoom = Math.min(MAX_ZOOM, Math.round((zoom + ZOOM_STEP) * 100) / 100);
+      applyZoom();
+    });
+  }
+  if (zoomOutBtn) {
+    zoomOutBtn.addEventListener('click', () => {
+      zoom = Math.max(MIN_ZOOM, Math.round((zoom - ZOOM_STEP) * 100) / 100);
+      applyZoom();
+    });
+  }
+  if (zoomResetBtn) {
+    zoomResetBtn.addEventListener('click', () => {
+      zoom = 1;
+      applyZoom();
+    });
+  }
+  applyZoom();
+
+  // Forward wheel/trackpad scroll on preview to the left controls panel
+  const previewBox = $("preview-box");
+  const controlsPanel = $("controls-panel");
+  if (previewBox && controlsPanel) {
+    previewBox.addEventListener(
+      'wheel',
+      (e) => {
+        const dy = e.deltaY;
+        // Determine if the left panel can scroll in the intended direction
+        const atTop = controlsPanel.scrollTop <= 0;
+        const atBottom = Math.ceil(controlsPanel.scrollTop + controlsPanel.clientHeight) >= controlsPanel.scrollHeight;
+        const goingDown = dy > 0;
+        const goingUp = dy < 0;
+        const canScrollDown = !atBottom;
+        const canScrollUp = !atTop;
+        if ((goingDown && canScrollDown) || (goingUp && canScrollUp)) {
+          e.preventDefault();
+          controlsPanel.scrollTop += dy;
+        }
+        // else: allow default page scroll
+      },
+      { passive: false }
+    );
+  }
+
+  // SKU select (desktop and mobile)
+  const skuSelect = $("sku-select");
+  const mobileSkuSelect = $("mobile-sku-select");
+
+  function refreshSkuSelect() {
+    const selects = [skuSelect, mobileSkuSelect].filter(Boolean);
+    if (selects.length === 0) return;
+    
+    const fragment = document.createDocumentFragment();
+    Object.entries(CATALOG).forEach(([key, parts]) => {
+      const opt = document.createElement('option');
+      opt.value = key;
+      opt.textContent = (parts.__name || key);
+      fragment.appendChild(opt);
+    });
+    
+    selects.forEach(sel => {
+      sel.innerHTML = '';
+      sel.appendChild(fragment.cloneNode(true));
+      sel.value = currentSKU;
+    });
+  }
+
+  async function handleSkuChange(newSku, state) {
+    if (!CATALOG[newSku] || newSku === currentSKU) return; // Don't reload if same SKU is selected
+
+    showLoading(true);
+
+    // Preload images for the new SKU before updating the UI
+    await preloadImagesForSKU(newSku, 4000);
+
+    currentSKU = newSku;
+    PARTS = CATALOG[currentSKU];
+    
+    // Update both dropdowns to stay in sync
+    if (skuSelect) skuSelect.value = currentSKU;
+    if (mobileSkuSelect) mobileSkuSelect.value = currentSKU;
+
+    // Reset state for available groups
+    const groups = getGroupsOrdered(PARTS);
+    const newState = {};
+    groups.forEach((g) => { newState[g] = 0; });
+    Object.assign(state, newState); // Mutate the original state object
+
+    // Re-create dynamic grids for new SKU
+    createDynamicGrids();
+    
+    // Render all grids dynamically
+    Object.keys(PARTS || {}).forEach(key => {
+      if (key === '__name') return;
+      const items = PARTS[key];
+      if (Array.isArray(items) && items.length > 0) {
+        renderGrid(`grid-${key}`, items, key, state);
+        renderGrid(`mgrid-${key}`, items, key, state);
+      }
+    });
+    
+    // Re-initialize mobile parts view
+    renderMobilePartGroups(state);
+    
+    applySelections(state);
+
+    // Hide loading after all UI updates are done
+    showLoading(false);
+  }
+
+  refreshSkuSelect();
+  
+  if (skuSelect) {
+    skuSelect.addEventListener('change', () => handleSkuChange(skuSelect.value, state));
+  }
+  if (mobileSkuSelect) {
+    mobileSkuSelect.addEventListener('change', () => handleSkuChange(mobileSkuSelect.value, state));
+  }
+
+  // Admin overlay events (localStorage based)
+  // Open admin as a separate page instead of overlay
+  const openAdmin = $("open-admin");
+  if (openAdmin) {
+    openAdmin.addEventListener('click', (e) => {
+      e.preventDefault();
+      // open admin.html in same tab
+      window.location.href = './admin.html';
+    });
+  }
+
+  const adminSave = $("admin-save");
+  if (adminSave) {
+    adminSave.addEventListener('click', async () => {
+      // button now handled to prevent duplicate submits; UI state managed
+      const prevText = adminSave.textContent;
+      if (adminSave.disabled) return;
+      adminSave.disabled = true;
+      adminSave.classList.add('opacity-70', 'cursor-wait');
+      adminSave.textContent = 'Saving...';
+      try {
+        const skuIdRaw = (document.getElementById('admin-sku-id')?.value || '').trim();
+        const skuName = (document.getElementById('admin-sku-name')?.value || '').trim();
+        // Fix mojibake message: validate inputs in Thai before legacy line
+        if (!skuIdRaw && !skuName) { showToast('????????????????????? SKU ID ??????????????????', 'error'); return; }
+        if (!skuIdRaw && !skuName) { showToast('กรุณาใส่ชื่อรุ่นหรือ SKU ID อย่างน้อยหนึ่งช่อง', 'error'); return; }
+        const skuKey = sanitizeKey(skuIdRaw || skuName);
+        const supa = getSupabaseClient();
+        const bucket = window.SUPABASE_BUCKET || 'watch-assets';
+        // collect dynamic groups present in file inputs
+        // determine which groups are toggled on in the UI (existing + new)
+        const toggles = document.querySelectorAll('#admin-part-toggles input.part-toggle');
+        let groups = [];
+        toggles.forEach(t => { if (t.checked && t.dataset && t.dataset.group) groups.push(t.dataset.group); });
+        // Also include any file inputs that actually contain files (covers index.html admin inputs
+        // where toggles may not be used). This ensures groups are detected when user selected files
+        // but didn't toggle the part checkboxes.
+        try {
+          const fileInputs = Array.from(document.querySelectorAll('input[id^="admin-files-"]'));
+          fileInputs.forEach((input) => {
+            try {
+              const id = input && input.id ? input.id : '';
+              const m = id.match(/^admin-files-(.+)$/);
+              if (m && m[1]) {
+                const g = m[1];
+                const hasFiles = input.files && input.files.length;
+                // include if toggled on OR files present
+                if (hasFiles || !groups.includes(g)) {
+                  groups.push(g);
+                }
+              }
+            } catch (e) { /* ignore per-input */ }
+          });
+        } catch (e) { /* ignore DOM quirks */ }
+        // de-duplicate
+        groups = Array.from(new Set(groups));
+        console.debug('admin-save detected groups:', groups);
+        const assetRows = [];
+        if (supa) {
+          const { error: eSku } = await supa.from('skus').upsert({ id: skuKey, name: skuName || skuIdRaw }).select();
+          if (eSku) throw eSku;
+          // fetch existing counts
+          const { data: existingAssets } = await supa.from('assets').select('group_key, sort').eq('sku_id', skuKey);
+          const counts = {};
+          groups.forEach(g => { counts[g] = (existingAssets || []).filter(a => a.group_key === g).length; });
+          for (const g of groups) {
+            const input = document.getElementById('admin-files-' + g);
+            const files = input && input.files ? Array.from(input.files) : [];
+            let idx = (counts[g] || 0) + 1;
+            for (const f of files) {
+              const safeName = sanitizeFileName(f.name);
+              const path = `${skuKey}/${g}/${Date.now()}-${idx}-${safeName}`;
+              const { error: eUp } = await supa.storage.from(bucket).upload(path, f, { upsert: true, contentType: f.type });
+              if (eUp) throw eUp;

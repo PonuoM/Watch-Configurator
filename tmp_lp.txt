@@ -1,0 +1,24 @@
+  // Profile Settings menu handler
+  if (menuProfileSettings) {
+    menuProfileSettings.addEventListener('click', () => {
+      setActiveMenu(menuProfileSettings);
+      showPanel(panelProfileSettings);
+      
+      // Update header title
+      const headerTitle = document.querySelector('.header-title h1');
+      if (headerTitle) headerTitle.textContent = 'Profile Settings';
+      
+      // Load current settings
+      loadProfileSettings();
+    });
+  }
+
+  // populate sku select for add-part panel
+  function populateAdminSkuSelect() {
+    if (!adminSelectSku) return;
+    adminSelectSku.innerHTML = '';
+    Object.entries(CATALOG).forEach(([key, parts]) => {
+      const opt = document.createElement('option');
+      opt.value = key; opt.textContent = (parts.__name || key);
+      adminSelectSku.appendChild(opt);
+    });

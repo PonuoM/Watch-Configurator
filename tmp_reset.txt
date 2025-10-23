@@ -1,0 +1,60 @@
+    updateStoreNameOnMainPage(profileSettingsData.store_name);
+  } catch (error) {
+    console.error('Error saving profile settings:', error);
+    alert('Error saving settings: ' + error.message);
+  }
+}
+
+// Update store name on main page
+function updateStoreNameOnMainPage(storeName) {
+  // Store the setting in localStorage for the main page to use
+  localStorage.setItem('watchStoreName', storeName);
+  
+  // Also store watermark settings
+  localStorage.setItem('watchWatermarkUrl', profileSettingsData.watermark_url);
+  localStorage.setItem('watchWatermarkOpacity', profileSettingsData.watermark_opacity);
+  localStorage.setItem('watchWatermarkPosition', profileSettingsData.watermark_position);
+  localStorage.setItem('watchWatermarkSize', profileSettingsData.watermark_size);
+}
+
+// Reset profile settings to defaults
+function resetProfileSettings() {
+  if (confirm('Are you sure you want to reset all settings to defaults?')) {
+    profileSettingsData = {
+      store_name: 'Watch Configurator',
+      watermark_url: '',
+      watermark_opacity: 0.5,
+      watermark_position: 'bottom-right',
+      watermark_size: 100
+    };
+    
+    updateProfileSettingsForm();
+    saveProfileSettings();
+  }
+}
+
+// Initialize profile settings event listeners
+document.addEventListener('DOMContentLoaded', () => {
+  // Profile settings form elements
+  const storeNameInput = document.getElementById('store-name');
+  const watermarkUrlInput = document.getElementById('watermark-url');
+  const watermarkOpacityInput = document.getElementById('watermark-opacity');
+  const watermarkPositionInput = document.getElementById('watermark-position');
+  const watermarkSizeInput = document.getElementById('watermark-size');
+  const opacityValue = document.getElementById('opacity-value');
+  const sizeValue = document.getElementById('size-value');
+  const uploadWatermarkBtn = document.getElementById('upload-watermark');
+  const watermarkFileInput = document.getElementById('watermark-file');
+  const saveProfileBtn = document.getElementById('save-profile-settings');
+  const resetProfileBtn = document.getElementById('reset-profile-settings');
+  
+  // Opacity slider
+  if (watermarkOpacityInput && opacityValue) {
+    watermarkOpacityInput.addEventListener('input', () => {
+      opacityValue.textContent = watermarkOpacityInput.value + '%';
+      profileSettingsData.watermark_opacity = watermarkOpacityInput.value / 100;
+      updateWatermarkPreview();
+    });
+  }
+  
+  // Size slider

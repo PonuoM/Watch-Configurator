@@ -1,0 +1,120 @@
+            if (filteredRows.length) {
+              const { error: eIns } = await supa.from('assets').insert(filteredRows).select();
+              if (eIns) throw eIns;
+            }
+          }
+          await maybeLoadCatalogFromSupabase();
+          populateAdminSkuSelect();
+          renderAdminList();
+          showToast('เพิ่มลายสำเร็จ (Supabase)', 'success');
+        } catch (err) {
+          console.error(err);
+          showToast('ไม่สามารถอัปโหลดไป Supabase: ' + (err && err.message ? err.message : String(err)), 'error');
+        }
+      } else {
+        // fallback local storage behavior
+        const existing = CATALOG[skuKey] || { __name: skuKey };
+        existing[groupKey] = existing[groupKey] || [];
+        let idx = existing[groupKey].length + 1;
+        for (const f of files) {
+          try {
+            const dataUrl = await fileToDataURL(f);
+            existing[groupKey].push({ label: `${groupKey[0].toUpperCase()+groupKey.slice(1)} ${idx++}`, dataUrl });
+          } catch (e) { console.error(e); }
+        }
+        CATALOG[skuKey] = existing;
+        localStorage.setItem('watchCatalog', JSON.stringify(CATALOG));
+        showToast('เพิ่มลายสำเร็จ (Local)', 'success');
+        populateAdminSkuSelect();
+        renderAdminList();
+      }
+    });
+  }
+
+  // Enable/disable file inputs when toggles change
+  function updatePartInputsState() {
+    // support both checkbox table and legacy toggles
+    const toggles = Array.from(document.querySelectorAll('#admin-parts-table tbody input.part-checkbox'))
+      .concat(Array.from(document.querySelectorAll('#admin-part-toggles input.part-toggle')));
+    toggles.forEach(t => {
+      const g = t.dataset.group;
+      const wrap = document.getElementById('wrap-admin-files-' + g) || document.getElementById('admin-files-' + g)?.parentElement;
+      const input = document.getElementById('admin-files-' + g);
+      if (wrap) {
+        if (t.checked) wrap.classList.remove('part-disabled');
+        else wrap.classList.add('part-disabled');
+      }
+      if (input) input.disabled = !t.checked;
+      // if checkbox is in table, mark the row disabled state
+      const row = t.closest('tr');
+      if (row) row.classList.toggle('part-disabled', !t.checked);
+    });
+  }
+  // wire legacy toggles and table checkboxes
+  const partToggles = document.querySelectorAll('#admin-part-toggles input.part-toggle');
+  partToggles.forEach(t => t.addEventListener('change', updatePartInputsState));
+  const tableCheckboxes = document.querySelectorAll('#admin-parts-table tbody input.part-checkbox');
+  tableCheckboxes.forEach(t => t.addEventListener('change', updatePartInputsState));
+  // initial state
+  updatePartInputsState();
+
+  // Download PNG with watermark
+  const btnDownload = $("btn-download");
+  if (btnDownload) {
+    btnDownload.addEventListener('click', async () => {
+      try {
+        const dataUrl = await composePreviewPNG({ watermark: '© Your Brand' });
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        const ts = new Date().toISOString().replace(/[:.]/g,'-');
+        a.download = `${currentSKU}-${ts}.png`;
+        document.body.appendChild(a); a.click(); a.remove();
+      } catch (e) { alert('ไม่สามารถบันทึกรูปได้'); }
+    });
+  }
+
+  // --- Add Group to SKU Modal Logic ---
+  const masterGroupList = ['bracelet','outer','inner','dial','hands','second'];
+
+  function openGroupAddModal() {
+    if (!modalContextSku) return;
+    gamSkuKey.textContent = modalContextSku;
+    gamGroupList.innerHTML = '';
+
+    const existingGroups = getGroupsFromCatalog(CATALOG[modalContextSku] || {});
+
+    MASTER_GROUP_LIST.forEach(groupInfo => {
+      const group = groupInfo.key;
+      const isExisting = existingGroups.includes(group);
+      const label = document.createElement('label');
+      label.className = 'flex items-center p-2 rounded-md hover:bg-gray-50';
+      if (isExisting) label.classList.add('opacity-50', 'cursor-not-allowed');
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.name = 'groupToAdd';
+      checkbox.value = group;
+      checkbox.className = 'mr-3 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500';
+      if (isExisting) {
+        checkbox.checked = true;
+        checkbox.disabled = true;
+      }
+      
+      const text = document.createElement('span');
+      text.textContent = `${groupInfo.name_th} (${groupInfo.name_en})`;
+
+      label.appendChild(checkbox);
+      label.appendChild(text);
+      gamGroupList.appendChild(label);
+    });
+
+    if (groupAddModal) groupAddModal.classList.remove('hidden');
+  }
+  
+  function closeGroupAddModal() {
+    if (groupAddModal) groupAddModal.classList.add('hidden');
+  }
+
+  if (btnAddGroup) btnAddGroup.addEventListener('click', openGroupAddModal);
+  if (gamClose) gamClose.addEventListener('click', closeGroupAddModal);
+  if (gamSave) {

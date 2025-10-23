@@ -1,0 +1,210 @@
+
+function sanitizeFileName(name) {
+  return String(name).replace(/[^A-Za-z0-9._-]/g, '-');
+}
+
+function sanitizeKey(name) {
+  // SKU keys / storage paths should be ASCII lowercase + digits, dot, underscore or hyphen
+  // replace any other character with '-' and trim leading/trailing '-'
+  const s = String(name).toLowerCase().replace(/[^a-z0-9._-]/g, '-');
+  // collapse multiple '-' to single and trim
+  const cleaned = s.replace(/-+/g, '-').replace(/^-+|-+$/g, '');
+  if (cleaned) return cleaned;
+  // fallback to generated key when input contains no ASCII chars
+  return 'sku-' + Date.now();
+}
+
+async function composePreviewPNG({ watermark = '' } = {}) {
+  // Load layer images in order to a hidden canvas
+  const order = ['bracelet','outer','inner','dial','hands','second'];
+  // pick first available layer as base size or default 1200x1200
+  let baseW = 1200, baseH = 1500;
+  const imgs = [];
+  for (const key of order) {
+    const it = PARTS[key] && PARTS[key][0];
+    const el = document.getElementById('layer-' + key);
+    const src = el && el.src ? el.src : (it ? (it.dataUrl || (IMG_BASE + it.file)) : null);
+    if (!src) { imgs.push(null); continue; }
+    const img = await loadImage(src);
+    imgs.push(img);
+    if (img.naturalWidth && img.naturalHeight) { baseW = img.naturalWidth; baseH = img.naturalHeight; }
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = baseW; canvas.height = baseH;
+  const ctx = canvas.getContext('2d');
+  const draw = (im) => { if (im) ctx.drawImage(im, 0, 0, baseW, baseH); };
+  // draw in order
+  imgs.forEach(draw);
+  // watermark text (optional)
+  if (watermark) {
+    const pad = Math.round(baseW * 0.02);
+    ctx.save();
+    ctx.globalAlpha = 0.75;
+    ctx.fillStyle = 'white';
+    ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+    ctx.lineWidth = Math.max(2, Math.round(baseW * 0.0025));
+    const fs = Math.max(24, Math.round(baseW * 0.03));
+    ctx.font = `bold ${fs}px Manrope, Arial`;
+    const m = ctx.measureText(watermark);
+    const x = baseW - m.width - pad;
+    const y = baseH - pad;
+    ctx.strokeText(watermark, x, y);
+    ctx.fillText(watermark, x, y);
+    ctx.restore();
+  }
+
+  // watermark image from local folder (optional)
+  try {
+    if (WATERMARK_IMAGE) {
+      const pad = Math.round(baseW * 0.02);
+      const wimg = await loadImage(WATERMARK_IMAGE);
+      const maxW = Math.round(baseW * 0.35);
+      const scale = Math.min(1, maxW / (wimg.naturalWidth || maxW));
+      const w = Math.round((wimg.naturalWidth || maxW) * scale);
+      const h = Math.round((wimg.naturalHeight || maxW) * scale);
+      ctx.save();
+      ctx.globalAlpha = 0.18;
+      ctx.drawImage(wimg, baseW - w - pad, baseH - h - pad, w, h);
+      ctx.restore();
+    }
+  } catch (e) { /* ignore drawing errors */ }
+
+  // watermark image (optional)
+  try {
+    // Try to get watermark from profile settings first, then fall back to default
+    const savedWatermarkUrl = localStorage.getItem('watchWatermarkUrl');
+    const savedWatermarkOpacity = localStorage.getItem('watchWatermarkOpacity');
+    const savedWatermarkPosition = localStorage.getItem('watchWatermarkPosition');
+    const savedWatermarkSize = localStorage.getItem('watchWatermarkSize');
+    
+    const watermarkUrl = savedWatermarkUrl || WATERMARK_IMAGE;
+    if (watermarkUrl) {
+      const wimg = await loadImage(watermarkUrl);
+      const opacity = savedWatermarkOpacity ? parseFloat(savedWatermarkOpacity) : 0.5;
+      const size = savedWatermarkSize ? parseInt(savedWatermarkSize) : 100;
+      
+      ctx.save();
+      ctx.globalAlpha = opacity;
+      
+      // Calculate position based on saved setting - use the same logic as in preview
+      let x, y;
+      
+      // Check if it's a custom position
+      if (savedWatermarkPosition && savedWatermarkPosition.startsWith('custom:')) {
+        // Extract the x and y percentages from the custom position
+        const parts = savedWatermarkPosition.split(':');
+        if (parts.length === 3) {
+          const xPercent = parseFloat(parts[1]) / 100;
+          const yPercent = parseFloat(parts[2]) / 100;
+          
+          // Calculate position based on percentage
+          x = (baseW * xPercent) - (size / 2);
+          y = (baseH * yPercent) - (size / 2);
+        } else {
+          // Fallback to bottom-right
+          x = baseW - size - 10;
+          y = baseH - size - 10;
+        }
+      } else {
+        // Use predefined positions
+        const padding = 10; // Use the same padding as in preview
+        
+        switch (savedWatermarkPosition) {
+          case 'top-left':
+            x = padding;
+            y = padding;
+            break;
+          case 'top-right':
+            x = baseW - size - padding;
+            y = padding;
+            break;
+          case 'bottom-left':
+            x = padding;
+            y = baseH - size - padding;
+            break;
+          case 'center':
+            x = (baseW - size) / 2;
+            y = (baseH - size) / 2;
+            break;
+          case 'bottom-right':
+          default:
+            x = baseW - size - padding;
+            y = baseH - size - padding;
+            break;
+        }
+      }
+      
+      // Draw watermark with specified size
+      ctx.drawImage(wimg, x, y, size, size * (wimg.naturalHeight / wimg.naturalWidth));
+      ctx.restore();
+    }
+  } catch (e) { /* ignore */ }
+
+  return canvas.toDataURL('image/png');
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const im = new Image();
+    im.onload = () => resolve(im);
+    im.onerror = reject;
+    im.crossOrigin = 'anonymous';
+    im.src = src;
+  });
+}
+
+// ===== PROFILE SETTINGS MANAGEMENT =====
+let profileSettingsData = {
+  store_name: 'Watch Configurator',
+  watermark_url: '',
+  watermark_opacity: 0.5,
+  watermark_position: 'bottom-right',
+  watermark_size: 100
+};
+
+// Load profile settings from Supabase
+async function loadProfileSettings() {
+  try {
+    const client = getSupabaseClient();
+    if (!client) return;
+    
+    // Use the function to get or create settings
+    const { data, error } = await client
+      .from('profile_settings')
+      .select('*')
+      .limit(1);
+    
+    if (error) {
+      console.error('Error loading profile settings:', error);
+      return;
+    }
+    
+    if (data && data.length > 0) {
+      profileSettingsData = {
+        store_name: data[0].store_name || 'Watch Configurator',
+        watermark_url: data[0].watermark_url || '',
+        watermark_opacity: data[0].watermark_opacity || 0.5,
+        watermark_position: data[0].watermark_position || 'bottom-right',
+        watermark_size: data[0].watermark_size || 100
+      };
+    }
+    
+    // Update form fields
+    updateProfileSettingsForm();
+  } catch (error) {
+    console.error('Error loading profile settings:', error);
+  }
+}
+
+// Update form fields with current settings
+function updateProfileSettingsForm() {
+  const storeNameInput = document.getElementById('store-name');
+  const watermarkUrlInput = document.getElementById('watermark-url');
+  const watermarkOpacityInput = document.getElementById('watermark-opacity');
+  const watermarkPositionInput = document.getElementById('watermark-position');
+  const watermarkSizeInput = document.getElementById('watermark-size');
+  const opacityValue = document.getElementById('opacity-value');
+  const sizeValue = document.getElementById('size-value');
+  
+  if (storeNameInput) storeNameInput.value = profileSettingsData.store_name;
+  if (watermarkUrlInput) watermarkUrlInput.value = profileSettingsData.watermark_url;
