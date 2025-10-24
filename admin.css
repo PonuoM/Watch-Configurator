@@ -254,3 +254,39 @@ body.admin-dashboard {
 .search-wrap input {
   padding-left: 2.25rem;
 }
+
+/* Custom form styles for a more premium feel */
+.form-radio {
+  appearance: none;
+  background-color: #fff;
+  margin: 0;
+  font: inherit;
+  color: currentColor;
+  width: 1.15em;
+  height: 1.15em;
+  border: 0.15em solid currentColor;
+  border-radius: 50%;
+  transform: translateY(-0.075em);
+  display: grid;
+  place-content: center;
+  cursor: pointer;
+}
+
+.form-radio::before {
+  content: "";
+  width: 0.65em;
+  height: 0.65em;
+  border-radius: 50%;
+  transform: scale(0);
+  transition: 120ms transform ease-in-out;
+  box-shadow: inset 1em 1em var(--accent-color);
+}
+
+.form-radio:checked::before {
+  transform: scale(1);
+}
+
+.form-radio:focus {
+  outline: max(2px, 0.15em) solid currentColor;
+  outline-offset: max(2px, 0.15em);
+}

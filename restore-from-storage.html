@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🔧 กู้คืนข้อมูล Assets</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./supabase.config.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .container {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      max-width: 800px;
+      width: 100%;
+      padding: 40px;
+    }
+    h1 {
+      color: #1a202c;
+      margin-bottom: 10px;
+      font-size: 28px;
+    }
+    .subtitle {
+      color: #718096;
+      margin-bottom: 30px;
+      font-size: 14px;
+    }
+    .status {
+      background: #f7fafc;
+      border-left: 4px solid #4299e1;
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-size: 14px;
+    }
+    .status.success { border-color: #48bb78; background: #f0fff4; }
+    .status.error { border-color: #f56565; background: #fff5f5; }
+    .status.warning { border-color: #ed8936; background: #fffaf0; }
+    .btn {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-right: 10px;
+      margin-bottom: 10px;
+    }
+    .btn:hover { background: #5568d3; transform: translateY(-2px); }
+    .btn:disabled {
+      background: #cbd5e0;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .btn-secondary {
+      background: #718096;
+    }
+    .btn-secondary:hover { background: #4a5568; }
+    .btn-danger {
+      background: #f56565;
+    }
+    .btn-danger:hover { background: #e53e3e; }
+    #log {
+      background: #1a202c;
+      color: #48bb78;
+      font-family: 'Monaco', 'Courier New', monospace;
+      padding: 20px;
+      border-radius: 8px;
+      max-height: 400px;
+      overflow-y: auto;
+      font-size: 12px;
+      line-height: 1.6;
+      margin-top: 20px;
+    }
+    .log-line {
+      margin-bottom: 4px;
+    }
+    .log-error { color: #fc8181; }
+    .log-success { color: #68d391; }
+    .log-info { color: #63b3ed; }
+    .log-warning { color: #fbd38d; }
+    .progress {
+      margin: 20px 0;
+    }
+    .progress-bar {
+      height: 8px;
+      background: #e2e8f0;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #667eea, #764ba2);
+      width: 0%;
+      transition: width 0.3s;
+    }
+    .progress-text {
+      text-align: center;
+      margin-top: 8px;
+      font-size: 14px;
+      color: #4a5568;
+      font-weight: 600;
+    }
+    .file-preview {
+      margin: 20px 0;
+      max-height: 200px;
+      overflow-y: auto;
+      background: #f7fafc;
+      padding: 16px;
+      border-radius: 8px;
+      font-size: 12px;
+    }
+    .file-item {
+      padding: 4px 0;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 16px;
+      margin: 20px 0;
+    }
+    .stat-card {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .stat-value {
+      font-size: 32px;
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+    .stat-label {
+      font-size: 12px;
+      opacity: 0.9;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔧 กู้คืนข้อมูล Assets</h1>
+    <p class="subtitle">ดึงรายการไฟล์จาก Storage แล้วสร้าง database records ใหม่</p>
+
+    <div class="status warning" id="initial-status">
+      <strong>⚠️ ข้อควรระวัง:</strong><br>
+      - สคริปต์นี้จะสร้าง assets records จากไฟล์ที่อยู่ใน Storage<br>
+      - ถ้ามี records เดิมอยู่แล้ว อาจจะซ้ำได้<br>
+      - แนะนำให้สำรองข้อมูลก่อน (แต่ตอนนี้ไม่มีอยู่แล้ว 😅)
+    </div>
+
+    <div class="stats" id="stats" style="display: none;">
+      <div class="stat-card">
+        <div class="stat-value" id="stat-files">0</div>
+        <div class="stat-label">ไฟล์ใน Storage</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-restored">0</div>
+        <div class="stat-label">กู้คืนสำเร็จ</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-failed">0</div>
+        <div class="stat-label">ล้มเหลว</div>
+      </div>
+    </div>
+
+    <div>
+      <button class="btn" onclick="scanStorage()" id="btn-scan">
+        📂 สแกนไฟล์ใน Storage
+      </button>
+      <button class="btn btn-secondary" onclick="startRestore()" id="btn-restore" disabled>
+        🔄 เริ่มกู้คืนข้อมูล
+      </button>
+      <button class="btn btn-danger" onclick="clearAssets()" id="btn-clear">
+        🗑️ ล้างข้อมูล Assets (ระวัง!)
+      </button>
+    </div>
+
+    <div class="progress" id="progress-container" style="display: none;">
+      <div class="progress-bar">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+      <div class="progress-text" id="progress-text">0%</div>
+    </div>
+
+    <div id="file-preview" class="file-preview" style="display: none;"></div>
+    <div id="log"></div>
+  </div>
+
+  <script>
+    const supabase = window.supabase.createClient(
+      window.SUPABASE_URL,
+      window.SUPABASE_ANON_KEY
+    );
+
+    let discoveredFiles = [];
+    let stats = { files: 0, restored: 0, failed: 0 };
+
+    function log(message, type = 'info') {
+      const logEl = document.getElementById('log');
+      const line = document.createElement('div');
+      line.className = `log-line log-${type}`;
+      const timestamp = new Date().toLocaleTimeString('th-TH');
+      line.textContent = `[${timestamp}] ${message}`;
+      logEl.appendChild(line);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function updateProgress(current, total) {
+      const percent = Math.round((current / total) * 100);
+      document.getElementById('progress-fill').style.width = percent + '%';
+      document.getElementById('progress-text').textContent = `${percent}% (${current}/${total})`;
+    }
+
+    function updateStats() {
+      document.getElementById('stat-files').textContent = stats.files;
+      document.getElementById('stat-restored').textContent = stats.restored;
+      document.getElementById('stat-failed').textContent = stats.failed;
+      document.getElementById('stats').style.display = 'grid';
+    }
+
+    async function scanStorage() {
+      log('🔍 เริ่มสแกนไฟล์ใน Storage...', 'info');
+      document.getElementById('btn-scan').disabled = true;
+      discoveredFiles = [];
+
+      try {
+        // List all files in watch-assets bucket
+        const { data: files, error } = await supabase.storage
+          .from('watch-assets')
+          .list('', {
+            limit: 1000,
+            sortBy: { column: 'name', order: 'asc' }
+          });
+
+        if (error) throw error;
+
+        // Recursively list files in all folders
+        const allFiles = [];
+        
+        for (const item of files) {
+          if (item.id) {
+            // It's a file
+            allFiles.push({ name: item.name, folder: '' });
+          } else {
+            // It's a folder, list contents
+            const { data: subFiles } = await supabase.storage
+              .from('watch-assets')
+              .list(item.name, { limit: 1000 });
+            
+            if (subFiles) {
+              for (const subItem of subFiles) {
+                if (subItem.id) {
+                  // Check if there are sub-folders
+                  const { data: subSubFiles } = await supabase.storage
+                    .from('watch-assets')
+                    .list(`${item.name}/${subItem.name}`, { limit: 1000 });
+                  
+                  if (subSubFiles && subSubFiles.length > 0 && subSubFiles[0].id) {
+                    // Files in sub-sub folder
+                    subSubFiles.forEach(f => {
+                      if (f.id) {
+                        allFiles.push({ 
+                          name: f.name, 
+                          folder: `${item.name}/${subItem.name}`,
+                          fullPath: `${item.name}/${subItem.name}/${f.name}`
+                        });
+                      }
+                    });
+                  } else {
+                    allFiles.push({ 
+                      name: subItem.name, 
+                      folder: item.name,
+                      fullPath: `${item.name}/${subItem.name}`
+                    });
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        discoveredFiles = allFiles.filter(f => f.fullPath && f.fullPath.match(/\.(png|jpg|jpeg|gif|webp)$/i));
+        stats.files = discoveredFiles.length;
+        updateStats();
+
+        log(`✅ พบไฟล์ทั้งหมด ${discoveredFiles.length} ไฟล์`, 'success');
+
+        // Show file preview
+        const previewEl = document.getElementById('file-preview');
+        previewEl.innerHTML = '<strong>ไฟล์ที่พบ:</strong><br>' + 
+          discoveredFiles.slice(0, 20).map(f => `<div class="file-item">📄 ${f.fullPath}</div>`).join('') +
+          (discoveredFiles.length > 20 ? `<div class="file-item">... และอีก ${discoveredFiles.length - 20} ไฟล์</div>` : '');
+        previewEl.style.display = 'block';
+
+        document.getElementById('btn-restore').disabled = false;
+
+      } catch (error) {
+        log(`❌ เกิดข้อผิดพลาด: ${error.message}`, 'error');
+        console.error(error);
+      } finally {
+        document.getElementById('btn-scan').disabled = false;
+      }
+    }
+
+    async function startRestore() {
+      if (discoveredFiles.length === 0) {
+        log('⚠️ ไม่พบไฟล์ กรุณาสแกนก่อน', 'warning');
+        return;
+      }
+
+      if (!confirm(`พบไฟล์ ${discoveredFiles.length} ไฟล์\nต้องการกู้คืนข้อมูลหรือไม่?`)) {
+        return;
+      }
+
+      log('🔄 เริ่มกู้คืนข้อมูล...', 'info');
+      document.getElementById('btn-restore').disabled = true;
+      document.getElementById('progress-container').style.display = 'block';
+      stats.restored = 0;
+      stats.failed = 0;
+
+      for (let i = 0; i < discoveredFiles.length; i++) {
+        const file = discoveredFiles[i];
+        updateProgress(i + 1, discoveredFiles.length);
+
+        try {
+          // Parse path: {sku}/{group_key}/{filename} or {sku}/{filename}
+          const pathParts = file.fullPath.split('/');
+          let skuId, groupKey, filename;
+
+          if (pathParts.length === 3) {
+            [skuId, groupKey, filename] = pathParts;
+          } else if (pathParts.length === 2) {
+            [skuId, filename] = pathParts;
+            // Try to guess group_key from filename or folder
+            groupKey = 'unknown';
+          } else {
+            log(`⚠️ ข้าม: ${file.fullPath} (รูปแบบไม่ถูกต้อง)`, 'warning');
+            stats.failed++;
+            continue;
+          }
+
+          // Get public URL
+          const { data: urlData } = supabase.storage
+            .from('watch-assets')
+            .getPublicUrl(file.fullPath);
+
+          if (!urlData || !urlData.publicUrl) {
+            throw new Error('ไม่สามารถสร้าง URL ได้');
+          }
+
+          // Insert into assets
+          const { data, error } = await supabase
+            .from('assets')
+            .insert({
+              sku_id: skuId,
+              group_key: groupKey,
+              label: filename.replace(/\.[^/.]+$/, '').replace(/^\d+-\d+-/, ''),
+              url: urlData.publicUrl,
+              sort: i + 1
+            })
+            .select();
+
+          if (error) {
+            // Check if it's a foreign key error
+            if (error.message.includes('foreign key') || error.message.includes('violates')) {
+              log(`⚠️ ข้าม: ${file.fullPath} (SKU หรือ group_key ไม่มีในระบบ)`, 'warning');
+            } else {
+              throw error;
+            }
+            stats.failed++;
+          } else {
+            stats.restored++;
+            if (i % 10 === 0) {
+              log(`✅ กู้คืนแล้ว: ${file.fullPath}`, 'success');
+            }
+          }
+
+        } catch (error) {
+          log(`❌ ผิดพลาด: ${file.fullPath} - ${error.message}`, 'error');
+          stats.failed++;
+        }
+
+        updateStats();
+        await new Promise(resolve => setTimeout(resolve, 50)); // Throttle
+      }
+
+      log(`\n🎉 เสร็จสิ้น! กู้คืนสำเร็จ ${stats.restored} ไฟล์, ล้มเหลว ${stats.failed} ไฟล์`, 'success');
+      document.getElementById('btn-restore').disabled = false;
+    }
+
+    async function clearAssets() {
+      if (!confirm('⚠️ คำเตือน!\n\nการลบข้อมูลจะไม่สามารถกู้คืนได้\nแน่ใจหรือไม่?')) {
+        return;
+      }
+
+      if (!confirm('⚠️ คำเตือนครั้งที่ 2!\n\nข้อมูลทั้งหมดใน assets จะถูกลบ\nยืนยันอีกครั้ง?')) {
+        return;
+      }
+
+      log('🗑️ กำลังลบข้อมูล assets...', 'warning');
+
+      try {
+        const { error } = await supabase.from('assets').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        
+        if (error) throw error;
+        
+        log('✅ ลบข้อมูลเสร็จสิ้น', 'success');
+        stats.restored = 0;
+        updateStats();
+      } catch (error) {
+        log(`❌ เกิดข้อผิดพลาด: ${error.message}`, 'error');
+      }
+    }
+
+    // Init
+    log('✅ ระบบพร้อมใช้งาน', 'success');
+    log('📌 คลิก "สแกนไฟล์ใน Storage" เพื่อเริ่มต้น', 'info');
+  </script>
+</body>
+</html>
+

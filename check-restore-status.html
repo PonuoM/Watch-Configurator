@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>✅ ตรวจสอบสถานะการกู้คืน</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./supabase.config.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+      min-height: 100vh;
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .container {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      max-width: 900px;
+      width: 100%;
+      padding: 40px;
+    }
+    h1 {
+      color: #1a202c;
+      margin-bottom: 10px;
+      font-size: 28px;
+    }
+    .btn {
+      background: #48bb78;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      margin: 20px 0;
+    }
+    .btn:hover { background: #38a169; }
+    .result {
+      margin-top: 20px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+      font-size: 14px;
+    }
+    th, td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    th {
+      background: #f7fafc;
+      font-weight: 600;
+      color: #2d3748;
+    }
+    tr:hover {
+      background: #f7fafc;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .badge-success { background: #c6f6d5; color: #22543d; }
+    .badge-warning { background: #feebc8; color: #7c2d12; }
+    .badge-danger { background: #fed7d7; color: #742a2a; }
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin: 20px 0;
+    }
+    .summary-card {
+      background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+      color: white;
+      padding: 24px;
+      border-radius: 12px;
+      text-align: center;
+    }
+    .summary-value {
+      font-size: 36px;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+    .summary-label {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>✅ ตรวจสอบสถานะการกู้คืน</h1>
+    <p style="color: #718096; margin-bottom: 20px;">
+      ตรวจสอบจำนวน assets ที่กู้คืนแล้ว แยกตาม SKU และ Part Group
+    </p>
+
+    <button class="btn" onclick="checkStatus()">🔍 ตรวจสอบสถานะ</button>
+
+    <div id="result" class="result"></div>
+  </div>
+
+  <script>
+    const supabase = window.supabase.createClient(
+      window.SUPABASE_URL,
+      window.SUPABASE_ANON_KEY
+    );
+
+    async function checkStatus() {
+      const resultEl = document.getElementById('result');
+      resultEl.innerHTML = '<p>⏳ กำลังตรวจสอบ...</p>';
+
+      try {
+        // Get total count
+        const { count: totalCount } = await supabase
+          .from('assets')
+          .select('*', { count: 'exact', head: true });
+
+        // Get count by SKU and group
+        const { data: assets } = await supabase
+          .from('assets')
+          .select('sku_id, group_key');
+
+        // Count by SKU
+        const skuCounts = {};
+        const groupCounts = {};
+        const skuGroupCounts = {};
+
+        assets.forEach(a => {
+          skuCounts[a.sku_id] = (skuCounts[a.sku_id] || 0) + 1;
+          groupCounts[a.group_key] = (groupCounts[a.group_key] || 0) + 1;
+          const key = `${a.sku_id}:${a.group_key}`;
+          skuGroupCounts[key] = (skuGroupCounts[key] || 0) + 1;
+        });
+
+        // Render summary
+        let html = '<div class="summary">';
+        html += `
+          <div class="summary-card">
+            <div class="summary-value">${totalCount}</div>
+            <div class="summary-label">Assets ทั้งหมด</div>
+          </div>
+          <div class="summary-card">
+            <div class="summary-value">${Object.keys(skuCounts).length}</div>
+            <div class="summary-label">SKU ทั้งหมด</div>
+          </div>
+          <div class="summary-card">
+            <div class="summary-value">${Object.keys(groupCounts).length}</div>
+            <div class="summary-label">Part Groups</div>
+          </div>
+        `;
+        html += '</div>';
+
+        // Status badge
+        if (totalCount >= 100) {
+          html += '<div class="badge badge-success" style="font-size: 16px; padding: 12px 20px; margin: 20px 0;">✅ กู้คืนสำเร็จ! มีข้อมูลครบถ้วน</div>';
+        } else if (totalCount > 0) {
+          html += '<div class="badge badge-warning" style="font-size: 16px; padding: 12px 20px; margin: 20px 0;">⚠️ กู้คืนบางส่วน ตรวจสอบข้อมูลด้านล่าง</div>';
+        } else {
+          html += '<div class="badge badge-danger" style="font-size: 16px; padding: 12px 20px; margin: 20px 0;">❌ ยังไม่มีข้อมูล กรุณารัน restore-from-storage.html</div>';
+        }
+
+        // Table by SKU
+        html += '<h3 style="margin-top: 30px;">จำนวน Assets แยกตาม SKU</h3>';
+        html += '<table><thead><tr><th>SKU</th><th>จำนวน Assets</th></tr></thead><tbody>';
+        Object.entries(skuCounts).sort((a, b) => b[1] - a[1]).forEach(([sku, count]) => {
+          html += `<tr><td><strong>${sku}</strong></td><td>${count}</td></tr>`;
+        });
+        html += '</tbody></table>';
+
+        // Table by Group
+        html += '<h3 style="margin-top: 30px;">จำนวน Assets แยกตาม Part Group</h3>';
+        html += '<table><thead><tr><th>Part Group</th><th>จำนวน Assets</th></tr></thead><tbody>';
+        Object.entries(groupCounts).sort((a, b) => b[1] - a[1]).forEach(([group, count]) => {
+          html += `<tr><td><strong>${group}</strong></td><td>${count}</td></tr>`;
+        });
+        html += '</tbody></table>';
+
+        // Detailed table
+        html += '<h3 style="margin-top: 30px;">รายละเอียดแยกตาม SKU และ Part Group</h3>';
+        html += '<table><thead><tr><th>SKU</th><th>Part Group</th><th>จำนวน</th></tr></thead><tbody>';
+        Object.entries(skuGroupCounts).sort((a, b) => b[1] - a[1]).forEach(([key, count]) => {
+          const [sku, group] = key.split(':');
+          html += `<tr><td>${sku}</td><td>${group}</td><td>${count}</td></tr>`;
+        });
+        html += '</tbody></table>';
+
+        resultEl.innerHTML = html;
+
+      } catch (error) {
+        resultEl.innerHTML = `<div class="badge badge-danger">❌ เกิดข้อผิดพลาด: ${error.message}</div>`;
+        console.error(error);
+      }
+    }
+
+    // Auto check on load
+    window.addEventListener('load', () => {
+      setTimeout(checkStatus, 500);
+    });
+  </script>
+</body>
+</html>
+

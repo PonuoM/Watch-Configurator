@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🔧 กู้คืนข้อมูล Assets v2</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./supabase.config.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .container {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      max-width: 900px;
+      width: 100%;
+      padding: 40px;
+    }
+    h1 {
+      color: #1a202c;
+      margin-bottom: 10px;
+      font-size: 28px;
+    }
+    .subtitle {
+      color: #718096;
+      margin-bottom: 30px;
+      font-size: 14px;
+    }
+    .status {
+      background: #f7fafc;
+      border-left: 4px solid #4299e1;
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-size: 14px;
+    }
+    .status.success { border-color: #48bb78; background: #f0fff4; }
+    .status.error { border-color: #f56565; background: #fff5f5; }
+    .status.warning { border-color: #ed8936; background: #fffaf0; }
+    .btn {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-right: 10px;
+      margin-bottom: 10px;
+    }
+    .btn:hover { background: #5568d3; transform: translateY(-2px); }
+    .btn:disabled {
+      background: #cbd5e0;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .btn-danger {
+      background: #f56565;
+    }
+    .btn-danger:hover { background: #e53e3e; }
+    #log {
+      background: #1a202c;
+      color: #48bb78;
+      font-family: 'Monaco', 'Courier New', monospace;
+      padding: 20px;
+      border-radius: 8px;
+      max-height: 400px;
+      overflow-y: auto;
+      font-size: 12px;
+      line-height: 1.6;
+      margin-top: 20px;
+    }
+    .log-line {
+      margin-bottom: 4px;
+    }
+    .log-error { color: #fc8181; }
+    .log-success { color: #68d391; }
+    .log-info { color: #63b3ed; }
+    .log-warning { color: #fbd38d; }
+    .progress {
+      margin: 20px 0;
+    }
+    .progress-bar {
+      height: 8px;
+      background: #e2e8f0;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #667eea, #764ba2);
+      width: 0%;
+      transition: width 0.3s;
+    }
+    .progress-text {
+      text-align: center;
+      margin-top: 8px;
+      font-size: 14px;
+      color: #4a5568;
+      font-weight: 600;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 16px;
+      margin: 20px 0;
+    }
+    .stat-card {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .stat-value {
+      font-size: 32px;
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+    .stat-label {
+      font-size: 12px;
+      opacity: 0.9;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔧 กู้คืนข้อมูล Assets (Version 2)</h1>
+    <p class="subtitle">Query จาก storage.objects โดยตรง - แม่นยำกว่า!</p>
+
+    <div class="status warning" id="initial-status">
+      <strong>⚠️ ข้อควรระวัง:</strong><br>
+      - สคริปต์นี้จะสร้าง assets records จากไฟล์ที่อยู่ใน Storage<br>
+      - ระบบจะข้ามไฟล์ที่มี URL ซ้ำอัตโนมัติ<br>
+      - แนะนำให้ลบข้อมูลเก่าก่อน (ถ้ามี) แล้วค่อยกู้คืนใหม่
+    </div>
+
+    <div class="stats" id="stats" style="display: none;">
+      <div class="stat-card">
+        <div class="stat-value" id="stat-files">0</div>
+        <div class="stat-label">ไฟล์ใน Storage</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-restored">0</div>
+        <div class="stat-label">กู้คืนสำเร็จ</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-skipped">0</div>
+        <div class="stat-label">ข้าม/ล้มเหลว</div>
+      </div>
+    </div>
+
+    <div>
+      <button class="btn" onclick="startRestore()" id="btn-restore">
+        🔄 เริ่มกู้คืนข้อมูล
+      </button>
+      <button class="btn btn-danger" onclick="clearAssets()" id="btn-clear">
+        🗑️ ล้างข้อมูล Assets ก่อน
+      </button>
+    </div>
+
+    <div class="progress" id="progress-container" style="display: none;">
+      <div class="progress-bar">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+      <div class="progress-text" id="progress-text">0%</div>
+    </div>
+
+    <div id="log"></div>
+  </div>
+
+  <script>
+    const supabase = window.supabase.createClient(
+      window.SUPABASE_URL,
+      window.SUPABASE_ANON_KEY
+    );
+
+    let stats = { files: 0, restored: 0, skipped: 0 };
+
+    function log(message, type = 'info') {
+      const logEl = document.getElementById('log');
+      const line = document.createElement('div');
+      line.className = `log-line log-${type}`;
+      const timestamp = new Date().toLocaleTimeString('th-TH');
+      line.textContent = `[${timestamp}] ${message}`;
+      logEl.appendChild(line);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function updateProgress(current, total) {
+      const percent = Math.round((current / total) * 100);
+      document.getElementById('progress-fill').style.width = percent + '%';
+      document.getElementById('progress-text').textContent = `${percent}% (${current}/${total})`;
+    }
+
+    function updateStats() {
+      document.getElementById('stat-files').textContent = stats.files;
+      document.getElementById('stat-restored').textContent = stats.restored;
+      document.getElementById('stat-skipped').textContent = stats.skipped;
+      document.getElementById('stats').style.display = 'grid';
+    }
+
+    async function startRestore() {
+      if (!confirm('เริ่มกู้คืนข้อมูลจาก Storage?\n\nระบบจะดึงรายการไฟล์ทั้งหมดและสร้าง assets records')) {
+        return;
+      }
+
+      log('🔍 กำลังดึงรายการไฟล์จาก Storage...', 'info');
+      document.getElementById('btn-restore').disabled = true;
+      document.getElementById('progress-container').style.display = 'block';
+      stats = { files: 0, restored: 0, skipped: 0 };
+
+      try {
+        // Query storage.objects directly
+        const { data: files, error } = await supabase.rpc('get_storage_files', {});
+        
+        // If RPC doesn't exist, use SQL query
+        if (error) {
+          log('⚠️ ใช้วิธี SQL query แทน...', 'warning');
+          const { data: sqlFiles, error: sqlError } = await supabase
+            .from('storage.objects')
+            .select('name, bucket_id')
+            .eq('bucket_id', 'watch-assets')
+            .order('created_at', { ascending: false });
+          
+          if (sqlError) {
+            throw sqlError;
+          }
+          
+          files = sqlFiles || [];
+        }
+
+        if (!files || files.length === 0) {
+          log('❌ ไม่พบไฟล์ใน Storage', 'error');
+          return;
+        }
+
+        stats.files = files.length;
+        updateStats();
+        log(`✅ พบไฟล์ทั้งหมด ${files.length} ไฟล์`, 'success');
+
+        // Process each file
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          updateProgress(i + 1, files.length);
+
+          try {
+            // Parse file path: {sku}/{group_key}/{filename}
+            const name = file.name || file;
+            const parts = name.split('/');
+
+            if (parts.length < 2) {
+              log(`⚠️ ข้าม: ${name} (รูปแบบไม่ถูกต้อง)`, 'warning');
+              stats.skipped++;
+              continue;
+            }
+
+            let skuId, groupKey, filename;
+            
+            if (parts.length === 3) {
+              [skuId, groupKey, filename] = parts;
+            } else if (parts.length === 2) {
+              [skuId, filename] = parts;
+              groupKey = 'unknown';
+            } else {
+              // More than 3 parts, use last 3
+              groupKey = parts[parts.length - 2];
+              filename = parts[parts.length - 1];
+              skuId = parts.slice(0, -2).join('/');
+            }
+
+            // Skip non-image files
+            if (!filename.match(/\.(png|jpg|jpeg|gif|webp)$/i)) {
+              stats.skipped++;
+              continue;
+            }
+
+            // Get public URL
+            const { data: urlData } = supabase.storage
+              .from('watch-assets')
+              .getPublicUrl(name);
+
+            if (!urlData || !urlData.publicUrl) {
+              log(`⚠️ ข้าม: ${name} (ไม่สามารถสร้าง URL)`, 'warning');
+              stats.skipped++;
+              continue;
+            }
+
+            const url = urlData.publicUrl;
+
+            // Check if this URL already exists
+            const { data: existing } = await supabase
+              .from('assets')
+              .select('id')
+              .eq('url', url)
+              .limit(1);
+
+            if (existing && existing.length > 0) {
+              // Already exists, skip
+              stats.skipped++;
+              if (i % 20 === 0) {
+                log(`⏭️ ข้าม: ${name} (มีอยู่แล้ว)`, 'info');
+              }
+              continue;
+            }
+
+            // Create label from filename
+            const label = filename
+              .replace(/\.[^/.]+$/, '')           // Remove extension
+              .replace(/^\d+-\d+-/, '')            // Remove timestamp prefix
+              .replace(/[-_]+/g, ' ')              // Replace - or _ with space
+              .trim();
+
+            // Insert into assets
+            const { data, error: insertError } = await supabase
+              .from('assets')
+              .insert({
+                sku_id: skuId,
+                group_key: groupKey,
+                label: label || filename,
+                url: url,
+                sort: i + 1
+              })
+              .select();
+
+            if (insertError) {
+              if (insertError.message.includes('foreign key') || 
+                  insertError.message.includes('violates') ||
+                  insertError.code === '23503') {
+                log(`⚠️ ข้าม: ${name} (SKU "${skuId}" หรือ group_key "${groupKey}" ไม่มีในระบบ)`, 'warning');
+                stats.skipped++;
+              } else {
+                throw insertError;
+              }
+            } else {
+              stats.restored++;
+              if (i % 10 === 0 || stats.restored <= 5) {
+                log(`✅ กู้คืน: ${name}`, 'success');
+              }
+            }
+
+          } catch (error) {
+            log(`❌ ผิดพลาด: ${file.name || file} - ${error.message}`, 'error');
+            stats.skipped++;
+          }
+
+          updateStats();
+          
+          // Throttle to avoid rate limits
+          if (i % 10 === 0) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+        }
+
+        log(`\n🎉 เสร็จสิ้น!`, 'success');
+        log(`✅ กู้คืนสำเร็จ: ${stats.restored} ไฟล์`, 'success');
+        log(`⏭️ ข้าม/ล้มเหลว: ${stats.skipped} ไฟล์`, 'info');
+        
+        if (stats.restored > 0) {
+          log(`\n📌 เปิด check-restore-status.html เพื่อตรวจสอบผลลัพธ์`, 'info');
+        }
+
+      } catch (error) {
+        log(`❌ เกิดข้อผิดพลาดร้ายแรง: ${error.message}`, 'error');
+        console.error(error);
+      } finally {
+        document.getElementById('btn-restore').disabled = false;
+      }
+    }
+
+    async function clearAssets() {
+      if (!confirm('⚠️ คำเตือน!\n\nการลบข้อมูลจะไม่สามารถกู้คืนได้\nแน่ใจหรือไม่?')) {
+        return;
+      }
+
+      if (!confirm('⚠️ คำเตือนครั้งที่ 2!\n\nข้อมูลทั้งหมดใน assets จะถูกลบ\nยืนยันอีกครั้ง?')) {
+        return;
+      }
+
+      log('🗑️ กำลังลบข้อมูล assets...', 'warning');
+
+      try {
+        // Delete all assets
+        const { error } = await supabase
+          .from('assets')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000');
+        
+        if (error) throw error;
+        
+        log('✅ ลบข้อมูลเสร็จสิ้น', 'success');
+        stats.restored = 0;
+        updateStats();
+      } catch (error) {
+        log(`❌ เกิดข้อผิดพลาด: ${error.message}`, 'error');
+      }
+    }
+
+    // Init
+    log('✅ ระบบพร้อมใช้งาน', 'success');
+    log('📌 คลิก "เริ่มกู้คืนข้อมูล" เพื่อเริ่มต้น', 'info');
+    log('💡 หรือคลิก "ล้างข้อมูล Assets" ถ้าต้องการเริ่มต้นใหม่', 'info');
+  </script>
+</body>
+</html>
+

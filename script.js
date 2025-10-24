@@ -660,54 +660,70 @@ function createDynamicLayers() {
     const savedWatermarkOpacity = localStorage.getItem('watchWatermarkOpacity');
     const savedWatermarkPosition = localStorage.getItem('watchWatermarkPosition');
     const savedWatermarkSize = localStorage.getItem('watchWatermarkSize');
-    
-    wm.src = savedWatermarkUrl || WATERMARK_IMAGE;
-    wm.alt = 'watermark';
-    wm.className = 'watermark-overlay';
-    wm.draggable = false;
-    
-    // Apply watermark settings if available
-    if (savedWatermarkOpacity) {
-      wm.style.opacity = savedWatermarkOpacity;
+    const savedWatermarkType = localStorage.getItem('watchWatermarkType') || 'image';
+    const savedStoreName = localStorage.getItem('watchStoreName') || 'Watch Configurator';
+
+    if (savedWatermarkType === 'none') {
+      // Don't append anything if type is 'none'
+      return;
     }
-    
-    if (savedWatermarkSize) {
-      wm.style.width = savedWatermarkSize + 'px';
-      wm.style.height = 'auto';
-    }
-    
-    // Apply position - use the same logic as in preview
-    // Check if it's a custom position
-    if (savedWatermarkPosition && savedWatermarkPosition.startsWith('custom:')) {
-      // Extract the x and y percentages from the custom position
-      const parts = savedWatermarkPosition.split(':');
-      if (parts.length === 3) {
-        const xPercent = parseFloat(parts[1]);
-        const yPercent = parseFloat(parts[2]);
-        
-        // Apply custom position
-        wm.style.left = xPercent + '%';
-        wm.style.top = yPercent + '%';
-        wm.style.right = 'auto';
-        wm.style.bottom = 'auto';
-        wm.style.transform = 'translate(-50%, -50%)';
+
+    if (savedWatermarkType === 'text') {
+      const textWatermark = document.createElement('div');
+      textWatermark.id = 'wm-overlay-text';
+      textWatermark.textContent = savedStoreName.toUpperCase();
+      textWatermark.className = 'watermark-overlay-text'; // Add a class for styling
+      zoomInner.appendChild(textWatermark);
+      // Note: Position, size, opacity for text would need separate handling/styling
+    } else { // 'image'
+      wm.src = savedWatermarkUrl || WATERMARK_IMAGE;
+      wm.alt = 'watermark';
+      wm.className = 'watermark-overlay';
+      wm.draggable = false;
+
+      // Apply watermark settings if available
+      if (savedWatermarkOpacity) {
+        wm.style.opacity = savedWatermarkOpacity;
       }
-    } else {
-      const positions = {
-        'top-left': { top: '10px', left: '10px', right: 'auto', bottom: 'auto' },
-        'top-right': { top: '10px', right: '10px', left: 'auto', bottom: 'auto' },
-        'bottom-left': { bottom: '10px', left: '10px', top: 'auto', right: 'auto' },
-        'bottom-right': { bottom: '10px', right: '10px', top: 'auto', left: 'auto' },
-        'center': { top: '50%', left: '50%', transform: 'translate(-50%, -50%)', right: 'auto', bottom: 'auto' }
-      };
       
-      const pos = positions[savedWatermarkPosition] || positions['bottom-right'];
-      Object.keys(pos).forEach(key => {
-        wm.style[key] = pos[key];
-      });
+      if (savedWatermarkSize) {
+        wm.style.width = savedWatermarkSize + 'px';
+        wm.style.height = 'auto';
+      }
+      
+      // Apply position - use the same logic as in preview
+      // Check if it's a custom position
+      if (savedWatermarkPosition && savedWatermarkPosition.startsWith('custom:')) {
+        // Extract the x and y percentages from the custom position
+        const parts = savedWatermarkPosition.split(':');
+        if (parts.length === 3) {
+          const xPercent = parseFloat(parts[1]);
+          const yPercent = parseFloat(parts[2]);
+          
+          // Apply custom position
+          wm.style.left = xPercent + '%';
+          wm.style.top = yPercent + '%';
+          wm.style.right = 'auto';
+          wm.style.bottom = 'auto';
+          wm.style.transform = 'translate(-50%, -50%)';
+        }
+      } else {
+        const positions = {
+          'top-left': { top: '10px', left: '10px', right: 'auto', bottom: 'auto' },
+          'top-right': { top: '10px', right: '10px', left: 'auto', bottom: 'auto' },
+          'bottom-left': { bottom: '10px', left: '10px', top: 'auto', right: 'auto' },
+          'bottom-right': { bottom: '10px', right: '10px', top: 'auto', left: 'auto' },
+          'center': { top: '50%', left: '50%', transform: 'translate(-50%, -50%)', right: 'auto', bottom: 'auto' }
+        };
+        
+        const pos = positions[savedWatermarkPosition] || positions['bottom-right'];
+        Object.keys(pos).forEach(key => {
+          wm.style[key] = pos[key];
+        });
+      }
+      
+      zoomInner.appendChild(wm);
     }
-    
-    zoomInner.appendChild(wm);
   } catch (e) { /* ignore */ }
 }
 
@@ -767,7 +783,66 @@ function createDynamicGrids() {
   if (buttonsContainer) controlsPanel.appendChild(buttonsContainer);
 }
 
+// --- Store Settings ---
+async function loadStoreSettings() {
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    console.log("Supabase client not available, using default store name.");
+    return;
+  }
+  try {
+    const { data, error } = await supabase
+      .from('profile_settings')
+      .select('store_name')
+      .limit(1);
+
+    if (error) throw error;
+
+    const storeName = data && data.length > 0 ? data[0].store_name : 'Watch Configurator';
+    const titleEl = document.getElementById('app-title');
+    if (titleEl) {
+      titleEl.textContent = storeName;
+    }
+    document.title = storeName;
+  } catch (error) {
+    console.error("Error loading store settings:", error);
+    const titleEl = document.getElementById('app-title');
+    if (titleEl) {
+      titleEl.textContent = 'Watch Configurator';
+    }
+    document.title = 'Watch Configurator';
+  }
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
+  // Load store name first
+  await loadStoreSettings();
+
+  // Handle watermark type radio buttons (only on admin page)
+  const watermarkTypeRadios = document.querySelectorAll('input[name="watermark_type"]');
+  const watermarkImageSettings = document.getElementById('watermark-image-settings');
+
+  if (watermarkTypeRadios.length > 0 && watermarkImageSettings) {
+    function handleWatermarkTypeChange() {
+      const selectedRadio = document.querySelector('input[name="watermark_type"]:checked');
+      if (selectedRadio) {
+        const selectedType = selectedRadio.value;
+        if (selectedType === 'image') {
+          watermarkImageSettings.style.display = 'block';
+        } else {
+          watermarkImageSettings.style.display = 'none';
+        }
+      }
+    }
+
+    watermarkTypeRadios.forEach(radio => {
+      radio.addEventListener('change', handleWatermarkTypeChange);
+    });
+
+    // Initial check
+    handleWatermarkTypeChange();
+  }
+
   // Load store name from localStorage or use default
   const storeNameDisplay = document.getElementById('store-name-display');
   if (storeNameDisplay) {
@@ -1434,29 +1509,30 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
   renderAdminList();
   // --- New admin single-page SKU manager wiring ---
-  const skuTableBody = document.querySelector('#sku-table tbody');
-  const btnAddSkuTop = document.getElementById('btn-add-sku');
-  const partModal = document.getElementById('part-modal');
-  const pmClose = document.getElementById('pm-close');
-  const pmSkuKey = document.getElementById('pm-sku-key');
-  const pmGroupSelect = document.getElementById('pm-group-select');
-  const btnAddGroup = document.getElementById('btn-add-group');
-  const pmFiles = document.getElementById('pm-files');
-  const pmThumbs = document.getElementById('pm-thumbs');
+  // DUPLICATES below (defined earlier); comment out re-declarations
+  // const skuTableBody = document.querySelector('#sku-table tbody');
+  // const btnAddSkuTop = document.getElementById('btn-add-sku');
+  // const partModal = document.getElementById('part-modal');
+  // const pmClose = document.getElementById('pm-close');
+  // const pmSkuKey = document.getElementById('pm-sku-key');
+  // const pmGroupSelect = document.getElementById('pm-group-select');
+  // const btnAddGroup = document.getElementById('btn-add-group');
+  // const pmFiles = document.getElementById('pm-files');
+  // const pmThumbs = document.getElementById('pm-thumbs');
   // Dragging state for part thumbnails
-  let pmDragEl = null;
-  const pmAddBtn = document.getElementById('pm-add-btn');
+  // let pmDragEl = null;
+  // const pmAddBtn = document.getElementById('pm-add-btn');
 
-  // Add Group Modal elements
-  const groupAddModal = document.getElementById('group-add-modal');
-  const gamClose = document.getElementById('gam-close');
-  const gamSkuKey = document.getElementById('gam-sku-key');
-  const gamGroupList = document.getElementById('gam-group-list');
-  const gamSave = document.getElementById('gam-save');
-  const gamAddNewBtn = document.getElementById('gam-add-new');
-  const gamNewKeyInput = document.getElementById('gam-new-key');
-  const gamNewNameThInput = document.getElementById('gam-new-name-th');
-  const gamNewNameEnInput = document.getElementById('gam-new-name-en');
+  // Add Group Modal elements (duplicates — already defined earlier)
+  // const groupAddModal = document.getElementById('group-add-modal');
+  // const gamClose = document.getElementById('gam-close');
+  // const gamSkuKey = document.getElementById('gam-sku-key');
+  // const gamGroupList = document.getElementById('gam-group-list');
+  // const gamSave = document.getElementById('gam-save');
+  // const gamAddNewBtn = document.getElementById('gam-add-new');
+  // const gamNewKeyInput = document.getElementById('gam-new-key');
+  // const gamNewNameThInput = document.getElementById('gam-new-name-th');
+  // const gamNewNameEnInput = document.getElementById('gam-new-name-en');
 
   function buildSkuRow(key, parts) {
     const tr = document.createElement('tr');
@@ -1634,79 +1710,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  // part modal helpers
-  let modalContextSku = null;
-  // Edit SKU Name Modal Functions
-  let editSkuContext = null;
-  const editSkuModal = document.getElementById('edit-sku-modal');
-  const editSkuNameInput = document.getElementById('edit-sku-name-input');
-  const editSkuIdDisplay = document.getElementById('edit-sku-id-display');
-  const editSkuClose = document.getElementById('edit-sku-close');
-  const editSkuCancel = document.getElementById('edit-sku-cancel');
-  const editSkuSave = document.getElementById('edit-sku-save');
-
-  function openEditSKUModal(skuId) {
-    if (!skuId || !CATALOG[skuId]) return;
-    editSkuContext = skuId;
-    editSkuNameInput.value = CATALOG[skuId].__name || '';
-    editSkuIdDisplay.value = skuId;
-    if (editSkuModal) editSkuModal.classList.remove('hidden');
-  }
-
-  function closeEditSKUModal() {
-    editSkuContext = null;
-    if (editSkuModal) editSkuModal.classList.add('hidden');
-    if (editSkuNameInput) editSkuNameInput.value = '';
-    if (editSkuIdDisplay) editSkuIdDisplay.value = '';
-  }
-
-  async function saveEditSKU() {
-    if (!editSkuContext) return;
-    const newName = editSkuNameInput ? editSkuNameInput.value.trim() : '';
-    if (!newName) {
-      showToast('à¸à¸£à¸¸à¸"à¸²à¸à¸£à¸­à¸à¸Šà¸·à¹ˆà¸­ SKU', 'error');
-      return;
-    }
-
-    const supa = getSupabaseClient();
-    if (!supa) {
-      showToast('à¹„à¸¡à¹ˆà¸ªà¸²à¸¡à¸²à¸£à¸–à¹€à¸Šà¸·à¹ˆà¸­à¸¡à¸•à¹ˆà¸­ Supabase', 'error');
-      return;
-    }
-
-    try {
-      // Update in Supabase
-      const { error } = await supa
-        .from('skus')
-        .update({ name: newName })
-        .eq('id', editSkuContext);
-
-      if (error) throw error;
-
-      // Update local catalog
-      if (CATALOG[editSkuContext]) {
-        CATALOG[editSkuContext].__name = newName;
-      }
-      localStorage.setItem('watchCatalog', JSON.stringify(CATALOG));
-
-      showToast('à¹à¸à¹‰à¹„à¸‚à¸Šà¸·à¹ˆà¸­ SKU à¸ªà¸³à¹€à¸£à¹‡à¸ˆ', 'success');
-      closeEditSKUModal();
-      refreshSkuTable();
-      
-      // Update SKU selector if current SKU
-      if (editSkuContext === currentSKU) {
-        populateSkuSelector();
-      }
-    } catch (e) {
-      console.error(e);
-      showToast('à¹€à¸à¸´à¸"à¸‚à¹‰à¸­à¸œà¸´à¸"à¸žà¸¥à¸²à¸"à¸‚à¸"à¸°à¸šà¸±à¸™à¸—à¸¶à¸: ' + (e && e.message ? e.message : String(e)), 'error');
-    }
-  }
-
-  if (editSkuClose) editSkuClose.addEventListener('click', closeEditSKUModal);
-  if (editSkuCancel) editSkuCancel.addEventListener('click', closeEditSKUModal);
-  if (editSkuSave) editSkuSave.addEventListener('click', saveEditSKU);
-
   // Support admin.html side modal (#editSkuModal)
   const skuSideModal = document.getElementById('editSkuModal');
   const editSkuForm = document.getElementById('editSkuForm');
@@ -1870,7 +1873,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // ===== PART GROUPS MANAGEMENT =====
   const menuPartGroups = document.getElementById('menu-part-groups');
-  const panelPartGroups = document.getElementById('panel-part-groups');
+  // DUPLICATE: panelPartGroups is already defined earlier
+  // const panelPartGroups = document.getElementById('panel-part-groups');
   const partGroupsTable = document.getElementById('part-groups-table');
   const partGroupsTableBody = partGroupsTable ? partGroupsTable.querySelector('tbody') : null;
   const btnAddPartGroup = document.getElementById('btn-add-part-group');
@@ -1897,17 +1901,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  // Menu switching
+  // Menu switching - this is handled later in the unified menu system (line 2930-2942)
+  // But we need to add the refresh table logic
   if (menuPartGroups) {
     menuPartGroups.addEventListener('click', () => {
-      // Use common panel switcher to avoid panels sticking
-      setActiveMenu(menuPartGroups);
-      showPanel(panelPartGroups);
-
-      // Set Thai header title for Part Groups
-      try { const h = document.querySelector('.header-title h1'); if (h) h.textContent = 'จัดการกลุ่มชิ้นส่วน'; } catch (_) {}
-
-      // Refresh table
+      // Refresh table when panel becomes visible
       refreshPartGroupsTable();
     });
   }
@@ -2336,31 +2334,75 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (partGroupCancel) partGroupCancel.addEventListener('click', closePartGroupModal);
   if (partGroupSave) partGroupSave.addEventListener('click', savePartGroup);
 
-  function openPartModalForSKU(sku) {
+  // Part modal elements for SKU management
+  const partModal = document.getElementById('part-modal');
+  const pmClose = document.getElementById('pm-close');
+  const pmSkuKey = document.getElementById('pm-sku-key');
+  const pmGroupSelect = document.getElementById('pm-group-select');
+  const pmFiles = document.getElementById('pm-files');
+  const pmThumbs = document.getElementById('pm-thumbs');
+  const btnAddSkuTop = document.getElementById('btn-add-sku');
+  const pmAddBtn = document.getElementById('pm-add-btn');
+  
+  // Dragging state for part thumbnails
+  let pmDragEl = null;
+
+  async function openPartModalForSKU(sku) {
     modalContextSku = sku;
     pmSkuKey.textContent = sku;
-    // populate group select from parts available in CATALOG for the current SKU
-    const parts = CATALOG[sku] || {};
-    const groups = getGroupsOrdered(parts);
-    pmGroupSelect.innerHTML = '';
-    groups.forEach(g => {
-      const groupInfo = MASTER_GROUP_LIST.find(item => item.key === g);
-      const opt = document.createElement('option');
-      opt.value = g;
-      opt.textContent = groupInfo ? `${groupInfo.name_th} (${groupInfo.name_en})` : g;
-      pmGroupSelect.appendChild(opt);
-    });
-    // default to first group and ensure thumbs render for a valid group
-    if (groups.length && pmGroupSelect) {
-      pmGroupSelect.value = groups[0];
+    
+    // ดึงข้อมูลจากฐานข้อมูล Supabase เท่านั้น
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      alert('ไม่สามารถเชื่อมต่อฐานข้อมูลได้');
+      return;
     }
-    // FIX: populate thumbs AFTER setting the value to ensure correct group is displayed
-    // Use setTimeout to ensure the DOM has updated before rendering
-    setTimeout(() => {
-      refreshSubcategoryControls();
-      renderModalThumbs();
-    }, 0);
-    if (partModal) partModal.classList.remove('hidden');
+
+    try {
+      // ดึง part groups ที่มี assets สำหรับ SKU นี้
+      const { data: groups, error: groupError } = await supabase
+        .from('assets')
+        .select('group_key')
+        .eq('sku_id', sku)
+        .not('group_key', 'is', null);
+      
+      if (groupError) throw groupError;
+
+      // ดึงข้อมูล part_groups เพื่อแสดงชื่อภาษาไทย
+      const uniqueGroups = [...new Set(groups.map(g => g.group_key))];
+      const { data: partGroups, error: partGroupError } = await supabase
+        .from('part_groups')
+        .select('key, name_th, name_en, sort_order')
+        .in('key', uniqueGroups)
+        .order('sort_order');
+
+      if (partGroupError) throw partGroupError;
+
+      // populate group select
+      pmGroupSelect.innerHTML = '';
+      partGroups.forEach(group => {
+        const opt = document.createElement('option');
+        opt.value = group.key;
+        opt.textContent = `${group.name_th} (${group.name_en})`;
+        pmGroupSelect.appendChild(opt);
+      });
+
+      // default to first group
+      if (partGroups.length && pmGroupSelect) {
+        pmGroupSelect.value = partGroups[0].key;
+      }
+
+      // populate thumbs AFTER setting the value
+      setTimeout(() => {
+        refreshSubcategoryControls();
+        renderModalThumbs();
+      }, 0);
+      
+      if (partModal) partModal.classList.remove('hidden');
+    } catch (error) {
+      console.error('Error loading parts:', error);
+      alert('เกิดข้อผิดพลาดในการโหลดข้อมูล: ' + error.message);
+    }
   }
   function closePartModal() { modalContextSku = null; if (partModal) partModal.classList.add('hidden'); pmThumbs.innerHTML = ''; pmFiles.value = ''; }
   if (pmClose) pmClose.addEventListener('click', closePartModal);
@@ -2370,41 +2412,236 @@ document.addEventListener("DOMContentLoaded", async () => {
   const pmSubcatNew = document.getElementById('pm-subcat-new');
   const pmSubcatAdd = document.getElementById('pm-subcat-add');
 
-  function refreshSubcategoryControls() {
+  async function refreshSubcategoryControls() {
     if (!pmSubcatFilter) return;
     const g = pmGroupSelect ? pmGroupSelect.value : null;
-    const list = Array.from(new Set([...(getSubcatList(modalContextSku, g) || []), ...(unionSubcatsFromMeta(modalContextSku, g) || [])]));
     const current = pmSubcatFilter.value || 'all';
     pmSubcatFilter.innerHTML = '';
     const optAll = document.createElement('option'); optAll.value = 'all'; optAll.textContent = 'All'; pmSubcatFilter.appendChild(optAll);
-    list.forEach(v => { const o=document.createElement('option'); o.value=v; o.textContent=v; pmSubcatFilter.appendChild(o); });
-    pmSubcatFilter.value = list.includes(current) ? current : 'all';
+
+    try {
+      const supabase = getSupabaseClient();
+      if (supabase) {
+        // ดึง subcategories จากฐานข้อมูล
+        const { data: subcategories, error: subError } = await supabase
+          .from('subcategories')
+          .select('name')
+          .eq('sku_id', modalContextSku)
+          .eq('group_key', g);
+
+        if (!subError && subcategories) {
+          subcategories.forEach(sc => {
+            const opt = document.createElement('option');
+            opt.value = sc.name;
+            opt.textContent = sc.name;
+            pmSubcatFilter.appendChild(opt);
+          });
+        }
+
+        // ดึง subcategories จาก assets.subcategory
+        const { data: assets, error: assetError } = await supabase
+          .from('assets')
+          .select('subcategory')
+          .eq('sku_id', modalContextSku)
+          .eq('group_key', g)
+          .not('subcategory', 'is', null)
+          .not('subcategory', 'eq', '');
+
+        if (!assetError && assets) {
+          const uniqueAssets = [...new Set(assets.map(a => a.subcategory))];
+          uniqueAssets.forEach(name => {
+            // ตรวจสอบว่าไม่มีอยู่แล้ว
+            if (!Array.from(pmSubcatFilter.options).some(opt => opt.value === name)) {
+              const opt = document.createElement('option');
+              opt.value = name;
+              opt.textContent = name + ' (จาก Assets)';
+              pmSubcatFilter.appendChild(opt);
+            }
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error loading subcategories:', error);
+    }
+
+    // Also include locally added names (from localStorage) so they appear immediately
+    try {
+      const listLocal = getSubcatList(modalContextSku, g) || [];
+      listLocal.forEach(name => {
+        if (!Array.from(pmSubcatFilter.options).some(opt => opt.value === name)) {
+          const opt = document.createElement('option');
+          opt.value = name;
+          opt.textContent = name;
+          pmSubcatFilter.appendChild(opt);
+        }
+      });
+    } catch (_) {}
+
+    pmSubcatFilter.value = Array.from(pmSubcatFilter.options).some(opt => opt.value === current) ? current : 'all';
   }
   if (pmSubcatFilter) pmSubcatFilter.addEventListener('change', renderModalThumbs);
-  if (pmSubcatAdd) pmSubcatAdd.addEventListener('click', () => {
+  if (pmSubcatAdd) pmSubcatAdd.addEventListener('click', async () => {
     const g = pmGroupSelect ? pmGroupSelect.value : null;
     const val = (pmSubcatNew && pmSubcatNew.value || '').trim();
     if (!val) return;
     const list = getSubcatList(modalContextSku, g);
     list.push(val);
     saveSubcatList(modalContextSku, g, list);
+    // Try to persist to DB so it shows up under "subcategories" too
+    try {
+      const supabase = getSupabaseClient();
+      if (supabase && modalContextSku && g) {
+        await supabase
+          .from('subcategories')
+          .insert({ sku_id: modalContextSku, group_key: g, name: val, sort_order: 999 });
+      }
+    } catch (e) {
+      console.warn('Failed to insert subcategory into DB:', (e && e.message) || e);
+    }
     if (pmSubcatNew) pmSubcatNew.value = '';
     refreshSubcategoryControls();
     renderModalThumbs();
   });
-  function renderModalThumbs() {
+  async function renderModalThumbs() {
     pmThumbs.innerHTML = '';
     if (!modalContextSku) return;
     const g = pmGroupSelect ? pmGroupSelect.value : null;
-    const items = (CATALOG[modalContextSku] && CATALOG[modalContextSku][g]) ? CATALOG[modalContextSku][g] : [];
-    items.forEach((it, idx) => {
-      const url = it.dataUrl ? it.dataUrl : (it.file ? (IMG_BASE + it.file) : '');
-      const wrap = document.createElement('div');
-      wrap.className = 'relative cursor-move border border-transparent hover:border-gray-300 rounded';
-      wrap.draggable = true;
-      try { wrap.dataset.url = normalizeUrl(url || ''); } catch (_) { wrap.dataset.url = url || ''; }
-      const img = document.createElement('img'); img.src = url; img.className = 'w-full h-40 md:h-44 lg:h-48 object-contain select-none pointer-events-none';
+    
+    try {
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        pmThumbs.innerHTML = '<div class="text-center text-gray-500 p-4">ไม่สามารถเชื่อมต่อฐานข้อมูลได้</div>';
+        return;
+      }
+
+      // ดึงข้อมูล assets จากฐานข้อมูล
+      const { data: assets, error } = await supabase
+        .from('assets')
+        .select('*')
+        .eq('sku_id', modalContextSku)
+        .eq('group_key', g)
+        .order('sort', { ascending: true });
+
+      if (error) throw error;
+
+      if (!assets || assets.length === 0) {
+        pmThumbs.innerHTML = '<div class="text-center text-gray-500 p-4">ไม่มีรูปภาพสำหรับกลุ่มนี้</div>';
+        return;
+      }
+
+      // แสดงรูปภาพ
+      assets.forEach((asset, idx) => {
+        const url = asset.url;
+        const wrap = document.createElement('div');
+        wrap.className = 'relative cursor-move border border-transparent hover:border-gray-300 rounded';
+        wrap.draggable = true;
+        wrap.dataset.assetId = asset.id;
+        try { wrap.dataset.url = normalizeUrl(url || ''); } catch (_) { wrap.dataset.url = url || ''; }
+        
+        const img = document.createElement('img'); 
+        img.src = url; 
+        img.className = 'w-full h-40 md:h-44 lg:h-48 object-contain select-none pointer-events-none';
+        
+        // Edit button
+        const edit = document.createElement('button'); 
+        edit.textContent = '✏️'; 
+        edit.className = 'absolute top-1 left-1 bg-blue-600 text-white px-2 py-1 text-xs rounded hover:bg-blue-700';
+        edit.addEventListener('click', () => {
+          alert('Edit functionality not implemented yet');
+        });
+        
+        // Delete button
+        const del = document.createElement('button'); 
+        del.textContent = '🗑'; 
+        del.className = 'absolute top-1 right-1 bg-red-600 text-white px-2 py-1 text-xs rounded hover:bg-red-700';
+        del.addEventListener('click', async () => {
+          if (!confirm('แน่ใจหรือไม่ที่จะลบรูปนี้?')) return;
+          
+          del.disabled = true;
+          del.textContent = '⏳';
+          
+          try {
+            const { error: delError } = await supabase.from('assets').delete().eq('id', asset.id);
+            if (delError) throw delError;
+            
+            showToast('ลบสำเร็จ', 'success');
+            setTimeout(() => renderModalThumbs(), 100);
+            
+            if (typeof refreshSkuTable === 'function') {
+              refreshSkuTable();
+            }
+          } catch (e) { 
+            console.error(e); 
+            showToast('เกิดข้อผิดพลาดในการลบ: ' + (e && e.message ? e.message : String(e)), 'error'); 
+            del.disabled = false;
+            del.textContent = '🗑';
+          }
+        });
+        
+        // Add label text below the image
+        const labelDiv = document.createElement('div');
+        labelDiv.className = 'text-center text-xs font-medium text-gray-600 mt-2 px-1 truncate';
+        labelDiv.textContent = asset.label || 'ไม่มีชื่อ';
+        
+        // Subcategory selector
+        const scSel = document.createElement('select');
+        scSel.className = 'mt-2 w-full bg-white border border-gray-300 rounded text-xs px-2 py-1';
+        scSel.value = asset.subcategory || '';
+        
+        // Add options
+        const optNone = document.createElement('option'); 
+        optNone.value = ''; 
+        optNone.textContent = '(no subcategory)'; 
+        scSel.appendChild(optNone);
+        
+        // Add existing subcategories
+        const existingOptions = Array.from(pmSubcatFilter.options).filter(opt => opt.value !== 'all');
+        existingOptions.forEach(opt => {
+          const newOpt = document.createElement('option');
+          newOpt.value = opt.value;
+          newOpt.textContent = opt.textContent;
+          scSel.appendChild(newOpt);
+        });
+        
+        scSel.addEventListener('change', async () => {
+          const newVal = scSel.value;
+          try {
+            const { error: updateError } = await supabase
+              .from('assets')
+              .update({ subcategory: newVal || null })
+              .eq('id', asset.id);
+            
+            if (updateError) throw updateError;
+            
+            // Update label display
+            labelDiv.textContent = (asset.label || 'ไม่มีชื่อ') + (newVal ? ` · ${newVal}` : '');
+            
+            // Refresh subcategory controls if needed
+            const filter = document.getElementById('pm-subcat-filter');
+            if (filter && filter.value !== 'all' && filter.value !== newVal) {
+              renderModalThumbs();
+            }
+          } catch (error) {
+            console.error('Error updating subcategory:', error);
+            showToast('เกิดข้อผิดพลาดในการอัพเดท: ' + error.message, 'error');
+          }
+        });
+        
+        wrap.appendChild(img);
+        wrap.appendChild(edit);
+        wrap.appendChild(del);
+        wrap.appendChild(scSel);
+        wrap.appendChild(labelDiv);
+        pmThumbs.appendChild(wrap);
+      });
       
+    } catch (error) {
+      console.error('Error loading assets:', error);
+      pmThumbs.innerHTML = '<div class="text-center text-red-500 p-4">เกิดข้อผิดพลาดในการโหลดข้อมูล</div>';
+    }
+  }
+      
+      /* DEDUP: stray duplicate block start
       // Edit button
       const edit = document.createElement('button'); 
       edit.textContent = 'âœï¸'; 
@@ -2583,7 +2820,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       pmThumbs.appendChild(wrap);
     });
-  }
+  */
 
   // Persist current order in pm-thumbs to DB/local
   async function persistThumbOrder(sku, groupKey) {
@@ -2705,6 +2942,26 @@ document.addEventListener("DOMContentLoaded", async () => {
       pmAddBtn.textContent = prevText;
     }
   });
+
+  // Function to update the state of file inputs based on checkbox state
+  function updatePartInputsState() {
+    const toggles = document.querySelectorAll('input.part-toggle');
+    toggles.forEach(toggle => {
+      const group = toggle.getAttribute('data-group');
+      if (group) {
+        const fileInput = document.getElementById(`admin-files-${group}`);
+        if (fileInput) {
+          fileInput.disabled = !toggle.checked;
+          // Visual feedback: make disabled inputs look greyed out
+          if (toggle.checked) {
+            fileInput.classList.remove('opacity-50', 'cursor-not-allowed');
+          } else {
+            fileInput.classList.add('opacity-50', 'cursor-not-allowed');
+          }
+        }
+      }
+    });
+  }
 
   // Function to render part group checkboxes and file inputs dynamically
   function renderPartGroupControls() {
@@ -2828,6 +3085,18 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // Auto-generate SKU key preview when name changes and lock SKU ID field
+  // Function to sanitize a name into a valid key format
+  function sanitizeKey(name) {
+    if (!name || typeof name !== 'string') return '';
+    return name
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, '-')           // Replace spaces with hyphens
+      .replace(/[^\w\-]/g, '')        // Remove non-word chars except hyphens
+      .replace(/\-+/g, '-')           // Replace multiple hyphens with single
+      .replace(/^-+|-+$/g, '');       // Remove leading/trailing hyphens
+  }
+
   const skuIdInput = document.getElementById('admin-sku-id');
   const skuNameInput = document.getElementById('admin-sku-name');
   const skuPreviewKeyEl = document.getElementById('admin-sku-preview-key');
@@ -2862,1069 +3131,946 @@ document.addEventListener("DOMContentLoaded", async () => {
   const menuAddSku = document.getElementById('menu-add-sku');
   const menuAddPart = document.getElementById('menu-add-part');
   const menuProfileSettings = document.getElementById('menu-profile-settings');
+  const menuSubcategories = document.getElementById('menu-subcategories');
+
   const panelSkuList = document.getElementById('panel-sku-list');
-  const panelSku = document.getElementById('panel-sku');
-  const panelPart = document.getElementById('panel-part');
+  const panelPartGroups = document.getElementById('panel-part-groups');
   const panelProfileSettings = document.getElementById('panel-profile-settings');
-  const adminSelectSku = document.getElementById('admin-select-sku');
-  const adminSelectGroup = document.getElementById('admin-select-group');
-  const addPartFiles = document.getElementById('admin-files-newpart');
-  const addPartSave = document.getElementById('admin-addpart-save');
+  const panelSubcategories = document.getElementById('panel-subcategories');
+  const mainHeader = document.querySelector('.header-title h1');
 
-  function setActiveMenu(button) {
-    document.querySelectorAll('.nav-button').forEach(b => b.classList.remove('active'));
-    if (button) button.classList.add('active');
-  }
-  function showPanel(panel) {
-    if (panelSkuList) panelSkuList.classList.add('hidden');
-    if (panelSku) panelSku.classList.add('hidden');
-    if (panelPart) panelPart.classList.add('hidden');
-    if (panelPartGroups) panelPartGroups.classList.add('hidden');
-    if (panelProfileSettings) panelProfileSettings.classList.add('hidden');
-    if (panel) panel.classList.remove('hidden');
-  }
-  if (menuAddSku) {
-    menuAddSku.addEventListener('click', () => {
-      setActiveMenu(menuAddSku);
-      showPanel(panelSkuList);
-      
-      // Update header title
-      const headerTitle = document.querySelector('.header-title h1');
-      if (headerTitle) headerTitle.textContent = 'à¸ˆà¸±à¸"à¸à¸²à¸£ SKU';
-      
-      // Fix Thai header title for SKU list
-      try { const h = document.querySelector('.header-title h1'); if (h) h.textContent = '\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23 SKU'; } catch (_) {}
-      // Refresh SKU table
-      refreshSkuTable();
-    });
-  }
-  if (menuAddPart) {
-    menuAddPart.addEventListener('click', () => { setActiveMenu(menuAddPart); showPanel(panelPart); });
-  }
-  
-  // Profile Settings menu handler
-  if (menuProfileSettings) {
-    menuProfileSettings.addEventListener('click', () => {
-      setActiveMenu(menuProfileSettings);
-      showPanel(panelProfileSettings);
-      
-      // Update header title
-      const headerTitle = document.querySelector('.header-title h1');
-      if (headerTitle) headerTitle.textContent = 'Profile Settings';
-      
-      // Load current settings
-      loadProfileSettings();
-    });
-  }
+  const menus = [
+    { btn: menuAddSku, panel: panelSkuList, title: 'จัดการ SKU' },
+    { btn: menuPartGroups, panel: panelPartGroups, title: 'จัดการกลุ่มชิ้นส่วน' },
+    { btn: menuProfileSettings, panel: panelProfileSettings, title: 'ตั้งค่าโปรไฟล์' },
+    { btn: menuSubcategories, panel: panelSubcategories, title: 'จัดการ Subcategory' },
+  ];
 
-  // populate sku select for add-part panel
-  function populateAdminSkuSelect() {
-    if (!adminSelectSku) return;
-    adminSelectSku.innerHTML = '';
-    Object.entries(CATALOG).forEach(([key, parts]) => {
-      const opt = document.createElement('option');
-      opt.value = key; opt.textContent = (parts.__name || key);
-      adminSelectSku.appendChild(opt);
-    });
-  }
-  populateAdminSkuSelect();
-
-  // handle adding new part files to selected SKU
-  if (addPartSave) {
-    addPartSave.addEventListener('click', async () => {
-      const skuKey = adminSelectSku ? adminSelectSku.value : null;
-      const groupKey = adminSelectGroup ? adminSelectGroup.value : null;
-      const files = addPartFiles && addPartFiles.files ? Array.from(addPartFiles.files) : [];
-      if (!skuKey || !groupKey || files.length === 0) { showToast('à¸à¸£à¸¸à¸"à¸²à¹€à¸¥à¸·à¸­à¸ SKU, à¸à¸¥à¸¸à¹ˆà¸¡ à¹à¸¥à¸° à¹„à¸Ÿà¸¥à¹Œ', 'error'); return; }
-      // If Supabase is configured, upload files to storage and insert asset rows
-      const supa = getSupabaseClient();
-      const bucket = window.SUPABASE_BUCKET || 'watch-assets';
-      if (supa) {
-        try {
-          // fetch existing counts to continue numbering
-          const { data: existingAssets, error: eAssets } = await supa.from('assets').select('group_key, sort').eq('sku_id', skuKey);
-          if (eAssets) throw eAssets;
-          const counts = {};
-          (existingAssets || []).forEach(a => { counts[a.group_key] = Math.max(counts[a.group_key] || 0, a.sort || 0); });
-          const assetRows = [];
-          let idxStart = (counts[groupKey] || 0) + 1;
-          for (let i = 0; i < files.length; i++) {
-            const f = files[i];
-            const safeName = sanitizeFileName(f.name);
-            const path = `${skuKey}/${groupKey}/${Date.now()}-${idxStart + i}-${safeName}`;
-            const { error: eUp } = await supa.storage.from(bucket).upload(path, f, { upsert: true, contentType: f.type });
-            if (eUp) throw eUp;
-            const { data: pub } = supa.storage.from(bucket).getPublicUrl(path);
-            const url = pub?.publicUrl || '';
-            assetRows.push({ sku_id: skuKey, group_key: groupKey, label: `${groupKey[0].toUpperCase()+groupKey.slice(1)} ${idxStart + i}`, url, sort: idxStart + i });
-          }
-          if (assetRows.length) {
-            // prevent duplicate insert by checking existing URLs
-            const existingUrls = (existingAssets || []).map(a => normalizeUrl(a.url || ''));
-            const filteredRows = assetRows.filter(r => !existingUrls.includes(normalizeUrl(r.url || '')));
-            if (filteredRows.length) {
-              const { error: eIns } = await supa.from('assets').insert(filteredRows).select();
-              if (eIns) throw eIns;
-            }
-          }
-          await maybeLoadCatalogFromSupabase();
-          populateAdminSkuSelect();
-          renderAdminList();
-          showToast('à¹€à¸žà¸´à¹ˆà¸¡à¸¥à¸²à¸¢à¸ªà¸³à¹€à¸£à¹‡à¸ˆ (Supabase)', 'success');
-        } catch (err) {
-          console.error(err);
-          showToast('à¹„à¸¡à¹ˆà¸ªà¸²à¸¡à¸²à¸£à¸–à¸­à¸±à¸›à¹‚à¸«à¸¥à¸"à¹„à¸› Supabase: ' + (err && err.message ? err.message : String(err)), 'error');
-        }
-      } else {
-        // fallback local storage behavior
-        const existing = CATALOG[skuKey] || { __name: skuKey };
-        existing[groupKey] = existing[groupKey] || [];
-        let idx = existing[groupKey].length + 1;
-        for (const f of files) {
-          try {
-            const dataUrl = await fileToDataURL(f);
-            existing[groupKey].push({ label: `${groupKey[0].toUpperCase()+groupKey.slice(1)} ${idx++}`, dataUrl });
-          } catch (e) { console.error(e); }
-        }
-        CATALOG[skuKey] = existing;
-        localStorage.setItem('watchCatalog', JSON.stringify(CATALOG));
-        showToast('à¹€à¸žà¸´à¹ˆà¸¡à¸¥à¸²à¸¢à¸ªà¸³à¹€à¸£à¹‡à¸ˆ (Local)', 'success');
-        populateAdminSkuSelect();
-        renderAdminList();
-      }
-    });
-  }
-
-  // Enable/disable file inputs when toggles change
-  function updatePartInputsState() {
-    // support both checkbox table and legacy toggles
-    const toggles = Array.from(document.querySelectorAll('#admin-parts-table tbody input.part-checkbox'))
-      .concat(Array.from(document.querySelectorAll('#admin-part-toggles input.part-toggle')));
-    toggles.forEach(t => {
-      const g = t.dataset.group;
-      const wrap = document.getElementById('wrap-admin-files-' + g) || document.getElementById('admin-files-' + g)?.parentElement;
-      const input = document.getElementById('admin-files-' + g);
-      if (wrap) {
-        if (t.checked) wrap.classList.remove('part-disabled');
-        else wrap.classList.add('part-disabled');
-      }
-      if (input) input.disabled = !t.checked;
-      // if checkbox is in table, mark the row disabled state
-      const row = t.closest('tr');
-      if (row) row.classList.toggle('part-disabled', !t.checked);
-    });
-  }
-  // wire legacy toggles and table checkboxes
-  const partToggles = document.querySelectorAll('#admin-part-toggles input.part-toggle');
-  partToggles.forEach(t => t.addEventListener('change', updatePartInputsState));
-  const tableCheckboxes = document.querySelectorAll('#admin-parts-table tbody input.part-checkbox');
-  tableCheckboxes.forEach(t => t.addEventListener('change', updatePartInputsState));
-  // initial state
-  updatePartInputsState();
-
-  // Download PNG with watermark
-  const btnDownload = $("btn-download");
-  if (btnDownload) {
-    btnDownload.addEventListener('click', async () => {
-      try {
-        const dataUrl = await composePreviewPNG({ watermark: 'Â© Your Brand' });
-        const a = document.createElement('a');
-        a.href = dataUrl;
-        const ts = new Date().toISOString().replace(/[:.]/g,'-');
-        a.download = `${currentSKU}-${ts}.png`;
-        document.body.appendChild(a); a.click(); a.remove();
-      } catch (e) { alert('à¹„à¸¡à¹ˆà¸ªà¸²à¸¡à¸²à¸£à¸–à¸šà¸±à¸™à¸—à¸¶à¸à¸£à¸¹à¸›à¹„à¸"à¹‰'); }
-    });
-  }
-
-  // --- Add Group to SKU Modal Logic ---
-  const masterGroupList = ['bracelet','outer','inner','dial','hands','second'];
-
-  function openGroupAddModal() {
-    if (!modalContextSku) return;
-    gamSkuKey.textContent = modalContextSku;
-    gamGroupList.innerHTML = '';
-
-    const existingGroups = getGroupsFromCatalog(CATALOG[modalContextSku] || {});
-
-    MASTER_GROUP_LIST.forEach(groupInfo => {
-      const group = groupInfo.key;
-      const isExisting = existingGroups.includes(group);
-      const label = document.createElement('label');
-      label.className = 'flex items-center p-2 rounded-md hover:bg-gray-50';
-      if (isExisting) label.classList.add('opacity-50', 'cursor-not-allowed');
-
-      const checkbox = document.createElement('input');
-      checkbox.type = 'checkbox';
-      checkbox.name = 'groupToAdd';
-      checkbox.value = group;
-      checkbox.className = 'mr-3 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500';
-      if (isExisting) {
-        checkbox.checked = true;
-        checkbox.disabled = true;
-      }
-      
-      const text = document.createElement('span');
-      text.textContent = `${groupInfo.name_th} (${groupInfo.name_en})`;
-
-      label.appendChild(checkbox);
-      label.appendChild(text);
-      gamGroupList.appendChild(label);
-    });
-
-    if (groupAddModal) groupAddModal.classList.remove('hidden');
-  }
-  
-  function closeGroupAddModal() {
-    if (groupAddModal) groupAddModal.classList.add('hidden');
-  }
-
-  if (btnAddGroup) btnAddGroup.addEventListener('click', openGroupAddModal);
-  if (gamClose) gamClose.addEventListener('click', closeGroupAddModal);
-  if (gamSave) {
-    gamSave.addEventListener('click', () => {
-      const checkboxes = gamGroupList.querySelectorAll('input[name="groupToAdd"]:checked:not(:disabled)');
-      const groupsToAdd = Array.from(checkboxes).map(cb => cb.value);
-
-      if (groupsToAdd.length > 0) {
-        if (!CATALOG[modalContextSku]) {
-          CATALOG[modalContextSku] = { __name: modalContextSku };
-        }
-        groupsToAdd.forEach(group => {
-          if (!CATALOG[modalContextSku][group]) {
-            CATALOG[modalContextSku][group] = [];
-          }
+  menus.forEach(menu => {
+    if (menu.btn) {
+      menu.btn.addEventListener('click', () => {
+        menus.forEach(m => {
+          if (m.panel) m.panel.classList.add('hidden');
+          if (m.btn) m.btn.classList.remove('active');
         });
-
-        // Potentially save to localStorage or Supabase if needed, for now just update UI
-        localStorage.setItem('watchCatalog', JSON.stringify(CATALOG));
-
-        // Refresh the main part modal's dropdown
-        openPartModalForSKU(modalContextSku); 
-      }
-      closeGroupAddModal();
-    });
-  }
-
-  if (gamAddNewBtn) {
-    gamAddNewBtn.addEventListener('click', async () => {
-        const key = sanitizeKey((gamNewKeyInput.value || '').trim());
-        const name_th = (gamNewNameThInput.value || '').trim();
-        const name_en = (gamNewNameEnInput.value || '').trim();
-
-        if (!key || !name_th || !name_en) {
-            showToast('à¸à¸£à¸¸à¸"à¸²à¸à¸£à¸­à¸à¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸žà¸²à¸—à¹ƒà¸«à¸¡à¹ˆà¹ƒà¸«à¹‰à¸„à¸£à¸šà¸—à¸¸à¸à¸Šà¹ˆà¸­à¸‡', 'error');
-            return;
-        }
-
-        if (MASTER_GROUP_LIST.some(g => g.key === key)) {
-            showToast('ID Part (key) à¸™à¸µà¹‰à¸¡à¸µà¸­à¸¢à¸¹à¹ˆà¹à¸¥à¹‰à¸§à¹ƒà¸™à¸£à¸°à¸šà¸š', 'error');
-            return;
-        }
-
-        const supa = getSupabaseClient();
-        if (!supa) {
-            showToast('Supabase not connected', 'error');
-            return;
-        }
-
-        const maxSortOrder = MASTER_GROUP_LIST.reduce((max, g) => Math.max(max, g.sort_order || 0), 0);
-
-        try {
-            const { error } = await supa.from('part_groups').insert({
-                key,
-                name_th,
-                name_en,
-                sort_order: maxSortOrder + 1
-            });
-
-            if (error) throw error;
-
-            showToast('à¹€à¸žà¸´à¹ˆà¸¡à¸žà¸²à¸—à¹ƒà¸«à¸¡à¹ˆà¹€à¸‚à¹‰à¸²à¸£à¸°à¸šà¸šà¸ªà¸³à¹€à¸£à¹‡à¸ˆ', 'success');
-            gamNewKeyInput.value = '';
-            gamNewNameThInput.value = '';
-            gamNewNameEnInput.value = '';
-            
-            // Refresh the master list and re-render the modal content
-            await loadPartGroups(supa);
-            openGroupAddModal();
-        } catch (err) {
-            console.error('Error adding new part group:', err);
-            showToast('à¹€à¸à¸´à¸"à¸‚à¹‰à¸­à¸œà¸´à¸"à¸žà¸¥à¸²à¸"à¸‚à¸"à¸°à¸¥à¸š: ' + err.message, 'error');
-        }
-    });
-  }
-
-  // Auto-generate key from English name in the 'add new part' form
-  if (gamNewNameEnInput && gamNewKeyInput) {
-      gamNewNameEnInput.addEventListener('input', () => {
-          gamNewKeyInput.value = sanitizeKey((gamNewNameEnInput.value || '').trim());
+        if (menu.panel) menu.panel.classList.remove('hidden');
+        if (menu.btn) menu.btn.classList.add('active');
+        if (mainHeader) mainHeader.textContent = menu.title;
       });
-  }
-
-  // Wire add SKU button (top) to open the existing add-SKU panel
-  // This is declared earlier, ensure no re-declaration
-  // const addSkuTopBtn = document.getElementById('btn-add-component');
-  if (addSkuTopBtn) {
-    addSkuTopBtn.addEventListener('click', () => {
-      // switch to the Add SKU panel
-      try { setActiveMenu(menuAddSku); showPanel(panelSku); } catch (e) { /* fallback */ }
-      // focus the name input
-      const nameEl = document.getElementById('admin-sku-name'); if (nameEl) nameEl.focus();
-    });
-  }
-
-  // Open live preview window
-  function openLivePreview() {
-    // Get current configuration
-    const config = getCurrentConfiguration();
-    
-    // Create a new window with the watch configuration
-    const previewWindow = window.open('', '_blank');
-    
-    // Generate HTML for the preview
-    const previewHTML = `
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Watch Preview - ${profileSettingsData.store_name}</title>
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-        <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;700&display=swap" rel="stylesheet">
-        <script src="https://cdn.tailwindcss.com"></script>
-        <script>
-          tailwind.config = {
-            theme: {
-              extend: {
-                colors: {
-                  brandText: '#0e141b',
-                  brandMuted: '#4e7397',
-                  brandBg: '#e7edf3'
-                }
-              }
-            }
-          };
-        </script>
-        <style>
-          body { font-family: 'Manrope', system-ui, -apple-system, sans-serif; }
-          .preview-container { 
-            width: 400px; 
-            height: 500px; 
-            position: relative;
-            margin: 0 auto;
-          }
-          .watch-layer {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-          }
-          .watermark {
-            position: absolute;
-            z-index: 10;
-            pointer-events: none;
-          }
-        </style>
-      </head>
-      <body class="bg-gray-100 p-8">
-        <div class="max-w-2xl mx-auto">
-          <h1 class="text-2xl font-bold text-center mb-6">${profileSettingsData.store_name} - Watch Preview</h1>
-          <div class="preview-container bg-white rounded-lg shadow-lg overflow-hidden">
-            ${generateWatchLayersHTML(config)}
-            ${profileSettingsData.watermark_url ? generateWatermarkHTML() : ''}
-          </div>
-          <div class="mt-6 text-center">
-            <button onclick="window.close()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Close Preview</button>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
-    
-    // Write the HTML to the new window
-    previewWindow.document.write(previewHTML);
-    previewWindow.document.close();
-  }
-
-  // Helper function to get current watch configuration
-  function getCurrentConfiguration() {
-    const config = {};
-    Object.keys(PARTS).forEach(groupKey => {
-      const selected = document.querySelector(`#${groupKey}-grid .selected`);
-      if (selected) {
-        const cards = document.querySelectorAll(`#${groupKey}-grid .thumb`);
-        for (let i = 0; i < cards.length; i++) {
-          if (cards[i] === selected) {
-            config[groupKey] = i;
-            break;
-          }
-        }
-      }
-    });
-    return config;
-  }
-
-  // Helper function to generate HTML for watch layers
-  function generateWatchLayersHTML(config) {
-    let html = '';
-    Object.keys(PARTS).forEach(groupKey => {
-      const selectedIndex = config[groupKey] || 0;
-      const part = PARTS[groupKey][selectedIndex];
-      if (part) {
-        const imgSrc = part.dataUrl ? part.dataUrl : IMG_BASE + part.file;
-        html += `<img src="${imgSrc}" alt="${part.label}" class="watch-layer">`;
-      }
-    });
-    return html;
-  }
-
-  // Helper function to generate watermark HTML
-  function generateWatermarkHTML() {
-    const position = profileSettingsData.watermark_position;
-    const opacity = profileSettingsData.watermark_opacity;
-    const size = profileSettingsData.watermark_size;
-    
-    let positionStyle = '';
-    if (position.startsWith('custom:')) {
-      const parts = position.split(':');
-      if (parts.length === 3) {
-        const xPercent = parseFloat(parts[1]);
-        const yPercent = parseFloat(parts[2]);
-        positionStyle = `left: ${xPercent}%; top: ${yPercent}%; transform: translate(-50%, -50%);`;
-      }
-    } else {
-      const positions = {
-        'top-left': 'top: 10px; left: 10px;',
-        'top-right': 'top: 10px; right: 10px;',
-        'bottom-left': 'bottom: 10px; left: 10px;',
-        'bottom-right': 'bottom: 10px; right: 10px;',
-        'center': 'top: 50%; left: 50%; transform: translate(-50%, -50%);'
-      };
-      positionStyle = positions[position] || positions['bottom-right'];
     }
-    
-    return `
-      <img src="${profileSettingsData.watermark_url}" 
-           alt="Watermark" 
-           class="watermark" 
-           style="${positionStyle} opacity: ${opacity}; width: ${size}px; height: auto;">
-    `;
-  }
-
-  // Initialize watermark drag functionality
-  function initWatermarkDrag() {
-    const previewWatermark = document.getElementById('preview-watermark');
-    if (!previewWatermark) return;
-    
-    let isDragging = false;
-    let startX, startY;
-    let initialLeft, initialTop;
-    
-    previewWatermark.addEventListener('mousedown', (e) => {
-      isDragging = true;
-      startX = e.clientX;
-      startY = e.clientY;
-      
-      // Get current position
-      const computedStyle = window.getComputedStyle(previewWatermark);
-      initialLeft = parseFloat(computedStyle.left) || 0;
-      initialTop = parseFloat(computedStyle.top) || 0;
-      
-      // Prevent default drag behavior
-      e.preventDefault();
-    });
-    
-    document.addEventListener('mousemove', (e) => {
-      if (!isDragging) return;
-      
-      const deltaX = e.clientX - startX;
-      const deltaY = e.clientY - startY;
-      
-      // Calculate new position
-      const newLeft = initialLeft + deltaX;
-      const newTop = initialTop + deltaY;
-      
-      // Apply new position
-      previewWatermark.style.left = newLeft + 'px';
-      previewWatermark.style.top = newTop + 'px';
-      previewWatermark.style.right = 'auto';
-      previewWatermark.style.bottom = 'auto';
-      previewWatermark.style.transform = 'none';
-      
-      // Update position in profile data as custom position (use center, clamp 0..100, round to integer)
-      const parentRect = previewWatermark.parentElement.getBoundingClientRect();
-      const wmRect = previewWatermark.getBoundingClientRect();
-      let xPercent = ((newLeft + wmRect.width / 2) / parentRect.width) * 100;
-      let yPercent = ((newTop + wmRect.height / 2) / parentRect.height) * 100;
-      // round to integer and clamp
-      xPercent = Math.round(xPercent);
-      yPercent = Math.round(yPercent);
-      xPercent = Math.max(0, Math.min(100, xPercent));
-      yPercent = Math.max(0, Math.min(100, yPercent));
-      profileSettingsData.watermark_position = `custom:${xPercent}:${yPercent}`;
-      
-      // Update position dropdown if it exists
-      const positionInput = document.getElementById('watermark-position');
-      if (positionInput) {
-        // Only set to custom if the option exists
-        if ([...positionInput.options].some(o => o.value === 'custom')) {
-          positionInput.value = 'custom';
-        }
-      }
-    });
-    
-  document.addEventListener('mouseup', () => {
-      if (isDragging) {
-        isDragging = false;
-        // Save the new position
-        saveProfileSettings();
-      }
-    });
-  }
-
-  // Make these helpers available to other initializers
-  try {
-    window.openLivePreview = openLivePreview;
-    window.initWatermarkDrag = initWatermarkDrag;
-  } catch (e) { /* ignore if window unavailable */ }
-
-  // Save button
-  const saveProfileBtn = document.getElementById('save-profile-settings');
-  if (saveProfileBtn) {
-    saveProfileBtn.addEventListener('click', saveProfileSettings);
-  }
-  
-  // Reset button
-  const resetProfileBtn = document.getElementById('reset-profile-settings');
-  if (resetProfileBtn) {
-    resetProfileBtn.addEventListener('click', resetProfileSettings);
-  }
-  
-  // Open live preview button
-  const openLivePreviewBtn = document.getElementById('open-live-preview');
-  if (openLivePreviewBtn && window.openLivePreview) {
-    openLivePreviewBtn.addEventListener('click', window.openLivePreview);
-  }
-  
-  // Initialize watermark drag functionality
-  if (window.initWatermarkDrag) window.initWatermarkDrag();
-});
-
-function fileToDataURL(file) {
-  return new Promise((resolve, reject) => {
-    const fr = new FileReader();
-    fr.onload = () => resolve(fr.result);
-    fr.onerror = reject;
-    fr.readAsDataURL(file);
   });
-}
 
-function sanitizeFileName(name) {
-  return String(name).replace(/[^A-Za-z0-9._-]/g, '-');
-}
+  // Subcategory Management Logic (moved to main section)
 
-function sanitizeKey(name) {
-  // SKU keys / storage paths should be ASCII lowercase + digits, dot, underscore or hyphen
-  // replace any other character with '-' and trim leading/trailing '-'
-  const s = String(name).toLowerCase().replace(/[^a-z0-9._-]/g, '-');
-  // collapse multiple '-' to single and trim
-  const cleaned = s.replace(/-+/g, '-').replace(/^-+|-+$/g, '');
-  if (cleaned) return cleaned;
-  // fallback to generated key when input contains no ASCII chars
-  return 'sku-' + Date.now();
-}
+  async function populateSubcategoryFilters() {
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
 
-async function composePreviewPNG({ watermark = '' } = {}) {
-  // Load layer images in order to a hidden canvas
-  const order = ['bracelet','outer','inner','dial','hands','second'];
-  // pick first available layer as base size or default 1200x1200
-  let baseW = 1200, baseH = 1500;
-  const imgs = [];
-  for (const key of order) {
-    const it = PARTS[key] && PARTS[key][0];
-    const el = document.getElementById('layer-' + key);
-    const src = el && el.src ? el.src : (it ? (it.dataUrl || (IMG_BASE + it.file)) : null);
-    if (!src) { imgs.push(null); continue; }
-    const img = await loadImage(src);
-    imgs.push(img);
-    if (img.naturalWidth && img.naturalHeight) { baseW = img.naturalWidth; baseH = img.naturalHeight; }
-  }
-  const canvas = document.createElement('canvas');
-  canvas.width = baseW; canvas.height = baseH;
-  const ctx = canvas.getContext('2d');
-  const draw = (im) => { if (im) ctx.drawImage(im, 0, 0, baseW, baseH); };
-  // draw in order
-  imgs.forEach(draw);
-  // watermark text (optional)
-  if (watermark) {
-    const pad = Math.round(baseW * 0.02);
-    ctx.save();
-    ctx.globalAlpha = 0.75;
-    ctx.fillStyle = 'white';
-    ctx.strokeStyle = 'rgba(0,0,0,0.5)';
-    ctx.lineWidth = Math.max(2, Math.round(baseW * 0.0025));
-    const fs = Math.max(24, Math.round(baseW * 0.03));
-    ctx.font = `bold ${fs}px Manrope, Arial`;
-    const m = ctx.measureText(watermark);
-    const x = baseW - m.width - pad;
-    const y = baseH - pad;
-    ctx.strokeText(watermark, x, y);
-    ctx.fillText(watermark, x, y);
-    ctx.restore();
+    // Populate SKUs
+    const { data: skus, error: skuError } = await supabase.from('skus').select('id, name');
+    if (skuError) return console.error('Error fetching SKUs for filter:', skuError);
+    scFilterSku.innerHTML = '<option value="">เลือก SKU...</option>' + 
+      skus.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+
+    // Populate Part Groups with Thai names
+    const { data: groups, error: groupError } = await supabase.from('part_groups').select('key, name_th, name_en').order('sort_order');
+    if (groupError) return console.error('Error fetching part groups for filter:', groupError);
+    scFilterGroup.innerHTML = '<option value="">เลือกกลุ่มชิ้นส่วน...</option>' + 
+      groups.map(g => `<option value="${g.key}">${g.name_th} (${g.name_en})</option>`).join('');
+
+    // Add event listeners to reload table on filter change
+    scFilterSku.addEventListener('change', loadSubcategoriesForTable);
+    scFilterGroup.addEventListener('change', loadSubcategoriesForTable);
+
+    // Initial load
+    loadSubcategoriesForTable();
   }
 
-  // watermark image
-  try {
-    // Read saved settings once
-    const savedWatermarkUrl = localStorage.getItem('watchWatermarkUrl');
-    const savedWatermarkOpacity = localStorage.getItem('watchWatermarkOpacity');
-    const savedWatermarkPosition = localStorage.getItem('watchWatermarkPosition');
-    const savedWatermarkSize = localStorage.getItem('watchWatermarkSize');
+  async function loadSubcategoriesForTable() {
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
 
-    // Prefer user-set watermark; fall back to default constant
-    const watermarkUrl = savedWatermarkUrl || WATERMARK_IMAGE;
-    if (watermarkUrl) {
-      const wimg = await loadImage(watermarkUrl);
-      const opacity = savedWatermarkOpacity ? parseFloat(savedWatermarkOpacity) : 0.5;
-      const size = savedWatermarkSize ? parseInt(savedWatermarkSize) : 100;
+    const skuId = scFilterSku.value;
+    const groupKey = scFilterGroup.value;
+    const tableBody = document.querySelector('#subcategories-table tbody');
+    tableBody.innerHTML = '<tr><td colspan="4" class="text-center p-4">Loading...</td></tr>';
 
-      ctx.save();
-      ctx.globalAlpha = opacity;
-
-      // Calculate position based on saved setting - use the same logic as in preview
-      let x, y;
-
-      // Check if it's a custom position
-      if (savedWatermarkPosition && savedWatermarkPosition.startsWith('custom:')) {
-        const parts = savedWatermarkPosition.split(':');
-        if (parts.length === 3) {
-          const xPercent = parseFloat(parts[1]) / 100;
-          const yPercent = parseFloat(parts[2]) / 100;
-          x = (baseW * xPercent) - (size / 2);
-          y = (baseH * yPercent) - (size / 2);
-        } else {
-          x = baseW - size - 10;
-          y = baseH - size - 10;
-        }
-      } else {
-        const padding = 10;
-        switch (savedWatermarkPosition) {
-          case 'top-left':
-            x = padding; y = padding; break;
-          case 'top-right':
-            x = baseW - size - padding; y = padding; break;
-          case 'bottom-left':
-            x = padding; y = baseH - size - padding; break;
-          case 'center':
-            x = (baseW - size) / 2; y = (baseH - size) / 2; break;
-          case 'bottom-right':
-          default:
-            x = baseW - size - padding; y = baseH - size - padding; break;
-        }
-      }
-
-      // Draw watermark with specified size
-      ctx.drawImage(wimg, x, y, size, size * (wimg.naturalHeight / wimg.naturalWidth));
-      ctx.restore();
-    }
-  } catch (e) { /* ignore drawing errors */ }
-
-  return canvas.toDataURL('image/png');
-}
-
-function loadImage(src) {
-  return new Promise((resolve, reject) => {
-    const im = new Image();
-    im.onload = () => resolve(im);
-    im.onerror = reject;
-    im.crossOrigin = 'anonymous';
-    im.src = src;
-  });
-}
-
-// ===== PROFILE SETTINGS MANAGEMENT =====
-let profileSettingsData = {
-  store_name: 'Watch Configurator',
-  watermark_url: '',
-  watermark_opacity: 0.5,
-  watermark_position: 'bottom-right',
-  watermark_size: 100
-};
-
-// Load profile settings from Supabase
-async function loadProfileSettings() {
-  try {
-    const client = getSupabaseClient();
-    if (!client) return;
-    
-    // Use the function to get or create settings
-    const { data, error } = await client
-      .from('profile_settings')
+    // ตัวเลือก 1: ดึงจาก subcategories table
+    const { data: fromTable, error: tableError } = await supabase
+      .from('subcategories')
       .select('*')
-      .limit(1);
-    
-    if (error) {
-      console.error('Error loading profile settings:', error);
-      return;
-    }
-    
-    if (data && data.length > 0) {
-      profileSettingsData = {
-        store_name: data[0].store_name || 'Watch Configurator',
-        watermark_url: data[0].watermark_url || '',
-        watermark_opacity: data[0].watermark_opacity || 0.5,
-        watermark_position: data[0].watermark_position || 'bottom-right',
-        watermark_size: data[0].watermark_size || 100
-      };
-    }
-    
-    // Update form fields
-    updateProfileSettingsForm();
-  } catch (error) {
-    console.error('Error loading profile settings:', error);
-  }
-}
+      .eq('sku_id', skuId)
+      .eq('group_key', groupKey)
+      .order('sort_order', { ascending: true });
 
-// Update form fields with current settings
-function updateProfileSettingsForm() {
-  const storeNameInput = document.getElementById('store-name');
-  const watermarkUrlInput = document.getElementById('watermark-url');
-  const watermarkOpacityInput = document.getElementById('watermark-opacity');
-  const watermarkPositionInput = document.getElementById('watermark-position');
-  const watermarkSizeInput = document.getElementById('watermark-size');
-  const opacityValue = document.getElementById('opacity-value');
-  const sizeValue = document.getElementById('size-value');
-  
-  if (storeNameInput) storeNameInput.value = profileSettingsData.store_name;
-  if (watermarkUrlInput) watermarkUrlInput.value = profileSettingsData.watermark_url;
-  if (watermarkOpacityInput) {
-    watermarkOpacityInput.value = profileSettingsData.watermark_opacity * 100;
-    if (opacityValue) opacityValue.textContent = Math.round(profileSettingsData.watermark_opacity * 100) + '%';
-  }
-  if (watermarkPositionInput) {
-    if (String(profileSettingsData.watermark_position || '').startsWith('custom:')) {
-      // reflect custom in dropdown if present
-      if ([...watermarkPositionInput.options].some(o => o.value === 'custom')) {
-        watermarkPositionInput.value = 'custom';
-      }
-    } else {
-      watermarkPositionInput.value = profileSettingsData.watermark_position;
-    }
-  }
-  if (watermarkSizeInput) {
-    watermarkSizeInput.value = profileSettingsData.watermark_size;
-    if (sizeValue) sizeValue.textContent = profileSettingsData.watermark_size + 'px';
-  }
-  
-  // Update watermark preview
-  updateWatermarkPreview();
-}
-
-// Update watermark preview
-function updateWatermarkPreview() {
-  const previewWatermark = document.getElementById('preview-watermark');
-  const watermarkPreview = document.getElementById('watermark-preview');
-  
-  if (!previewWatermark || !watermarkPreview) return;
-  
-  if (profileSettingsData.watermark_url) {
-    previewWatermark.src = profileSettingsData.watermark_url;
-    previewWatermark.style.display = 'block';
-    
-    // Set opacity
-    previewWatermark.style.opacity = profileSettingsData.watermark_opacity;
-    
-    // Set size
-    previewWatermark.style.width = profileSettingsData.watermark_size + 'px';
-    previewWatermark.style.height = 'auto';
-    
-    // Set position relative to the watch container (not the full preview area)
-    const watchContainer = previewWatermark.parentElement;
-    const containerWidth = 300; // Width of the watch container
-    const containerHeight = 375; // Height of the watch container
-    
-    // Check if it's a custom position
-    if (profileSettingsData.watermark_position.startsWith('custom:')) {
-      // Extract the x and y percentages from the custom position
-      const parts = profileSettingsData.watermark_position.split(':');
-      if (parts.length === 3) {
-        const xPercent = parseFloat(parts[1]);
-        const yPercent = parseFloat(parts[2]);
-        
-        // Apply custom position
-        previewWatermark.style.left = xPercent + '%';
-        previewWatermark.style.top = yPercent + '%';
-        previewWatermark.style.right = 'auto';
-        previewWatermark.style.bottom = 'auto';
-        previewWatermark.style.transform = 'translate(-50%, -50%)';
-      }
-    } else {
-      // Calculate position within the watch container
-      const positions = {
-        'top-left': { top: '10px', left: '10px', right: 'auto', bottom: 'auto' },
-        'top-right': { top: '10px', right: '10px', left: 'auto', bottom: 'auto' },
-        'bottom-left': { bottom: '10px', left: '10px', top: 'auto', right: 'auto' },
-        'bottom-right': { bottom: '10px', right: '10px', top: 'auto', left: 'auto' },
-        'center': { top: '50%', left: '50%', transform: 'translate(-50%, -50%)', right: 'auto', bottom: 'auto' }
-      };
-      
-      const pos = positions[profileSettingsData.watermark_position] || positions['bottom-right'];
-      Object.keys(pos).forEach(key => {
-        previewWatermark.style[key] = pos[key];
+    // ตัวเลือก 2: ดึงชื่อที่ไม่ซ้ำจาก assets.subcategory (text column)
+    let fromAssets = null;
+    try {
+      const result = await supabase.rpc('get_distinct_subcategories', {
+        p_sku_id: skuId,
+        p_group_key: groupKey
       });
+      if (!result.error) {
+        fromAssets = result.data;
+      }
+    } catch (e) {
+      // RPC function ไม่มี หรือ error, ข้ามไป
+      console.log('RPC not available, using direct query');
     }
-    
-    // Reinitialize drag functionality after updating the watermark
-    setTimeout(() => { if (window.initWatermarkDrag) window.initWatermarkDrag(); }, 100);
-  } else {
-    previewWatermark.style.display = 'none';
-  }
-}
 
-// Save profile settings to Supabase
-async function saveProfileSettings() {
-  try {
-    const client = getSupabaseClient();
-    if (!client) return;
-    
-    // Get current form values
-    const storeNameInput = document.getElementById('store-name');
-    const watermarkUrlInput = document.getElementById('watermark-url');
-    const watermarkOpacityInput = document.getElementById('watermark-opacity');
-    const watermarkPositionInput = document.getElementById('watermark-position');
-    const watermarkSizeInput = document.getElementById('watermark-size');
-    
-    // Handle custom watermark position
-    let watermarkPosition = watermarkPositionInput ? watermarkPositionInput.value : 'bottom-right';
-    if (watermarkPosition === 'custom') {
-      // If the position is custom, use the current custom position from profileSettingsData
-      watermarkPosition = profileSettingsData.watermark_position || 'bottom-right';
-    }
-    // Normalize custom position to safe integer percentages (0..100)
-    if (typeof watermarkPosition === 'string' && watermarkPosition.startsWith('custom:')) {
-      const parts = watermarkPosition.split(':');
-      if (parts.length === 3) {
-        let x = Math.round(parseFloat(parts[1]));
-        let y = Math.round(parseFloat(parts[2]));
-        if (Number.isFinite(x) && Number.isFinite(y)) {
-          x = Math.max(0, Math.min(100, x));
-          y = Math.max(0, Math.min(100, y));
-          watermarkPosition = `custom:${x}:${y}`;
-        } else {
-          // Fallback if parse failed
-          watermarkPosition = 'bottom-right';
-        }
-      } else {
-        watermarkPosition = 'bottom-right';
+    // ถ้า RPC ไม่มี ให้ query เอง
+    let distinctFromAssets = [];
+    if (!fromAssets || fromAssets.length === 0) {
+      const { data: rawAssets } = await supabase
+        .from('assets')
+        .select('subcategory')
+        .eq('sku_id', skuId)
+        .eq('group_key', groupKey)
+        .not('subcategory', 'is', null)
+        .not('subcategory', 'eq', '');
+      
+      if (rawAssets) {
+        const unique = [...new Set(rawAssets.map(a => a.subcategory))];
+        distinctFromAssets = unique.map((name, idx) => ({ 
+          id: null, 
+          name, 
+          sort_order: idx + 1, 
+          image_url: null,
+          from_assets: true 
+        }));
       }
     }
+
+    // รวมข้อมูลจากทั้ง 2 แหล่ง
+    let allData = [...(fromTable || []), ...distinctFromAssets];
     
-    profileSettingsData = {
-      store_name: storeNameInput ? storeNameInput.value : 'Watch Configurator',
-      watermark_url: watermarkUrlInput ? watermarkUrlInput.value : '',
-      watermark_opacity: watermarkOpacityInput ? watermarkOpacityInput.value / 100 : 0.5,
-      watermark_position: watermarkPosition,
-      watermark_size: watermarkSizeInput ? parseInt(watermarkSizeInput.value) : 100
-    };
-    
-    // First, get the existing record ID
-    const { data: existingData, error: fetchError } = await client
-      .from('profile_settings')
-      .select('id')
-      .limit(1);
-    
-    if (fetchError) {
-      console.error('Error fetching existing settings:', fetchError);
-      alert('Error fetching settings: ' + fetchError.message);
+    // ลบชื่อซ้ำ (ถ้ามีทั้งใน table และ assets)
+    const seen = new Set();
+    allData = allData.filter(item => {
+      if (seen.has(item.name)) return false;
+      seen.add(item.name);
+      return true;
+    });
+
+    if (tableError && !allData.length) {
+      tableBody.innerHTML = '<tr><td colspan="4" class="text-center p-4 text-red-500">Error loading data.</td></tr>';
+      return console.error('Error loading subcategories:', tableError);
+    }
+
+    if (allData.length === 0) {
+      tableBody.innerHTML = '<tr><td colspan="4" class="text-center p-4">No subcategories found. Upload assets first or add manually.</td></tr>';
       return;
     }
-    
-    let result;
-    if (existingData && existingData.length > 0) {
-      // Update existing record
-      const { data, error } = await client
-        .from('profile_settings')
-        .update(profileSettingsData)
-        .eq('id', existingData[0].id)
-        .select();
-      
-      result = { data, error };
-    } else {
-      // Insert new record
-      const { data, error } = await client
-        .from('profile_settings')
-        .insert(profileSettingsData)
-        .select();
-      
-      result = { data, error };
-    }
-    
-    if (result.error) {
-      console.error('Error saving profile settings:', result.error);
-      alert('Error saving settings: ' + result.error.message);
-      return;
-    }
-    
-    alert('Settings saved successfully!');
-    
-    // Update store name on main page if it exists
-    updateStoreNameOnMainPage(profileSettingsData.store_name);
-  } catch (error) {
-    console.error('Error saving profile settings:', error);
-    alert('Error saving settings: ' + error.message);
-  }
-}
 
-// Update store name on main page
-function updateStoreNameOnMainPage(storeName) {
-  // Store the setting in localStorage for the main page to use
-  localStorage.setItem('watchStoreName', storeName);
-  
-  // Also store watermark settings
-  localStorage.setItem('watchWatermarkUrl', profileSettingsData.watermark_url);
-  localStorage.setItem('watchWatermarkOpacity', profileSettingsData.watermark_opacity);
-  localStorage.setItem('watchWatermarkPosition', profileSettingsData.watermark_position);
-  localStorage.setItem('watchWatermarkSize', profileSettingsData.watermark_size);
-}
+    tableBody.innerHTML = allData.map(sc => `
+      <tr data-id="${sc.id || ''}" data-from-assets="${sc.from_assets || false}">
+        <td>
+          ${sc.image_url ? 
+            `<img src="${sc.image_url}" alt="${sc.name}" class="w-10 h-10 object-contain rounded-md">` :
+            `<div class="w-10 h-10 bg-gray-200 rounded-md flex items-center justify-center text-xs text-gray-500">${sc.name.charAt(0)}</div>`
+          }
+        </td>
+        <td>
+          ${sc.name}
+          ${sc.from_assets ? '<span class="ml-2 text-xs text-blue-600">(จาก Assets)</span>' : ''}
+        </td>
+        <td>${sc.sort_order || '-'}</td>
+        <td class="flex items-center gap-2">
+          ${!sc.from_assets ? `
+            <button class="btn-upload-image btn btn-primary btn-sm" data-id="${sc.id}" data-name="${sc.name}">📷 รูป</button>
+            <button class="btn-edit-subcategory btn btn-secondary btn-sm">Edit</button>
+            <button class="btn-delete-subcategory btn btn-text-danger btn-sm">Delete</button>
+          ` : `
+            <button class="btn-save-to-table btn btn-primary btn-sm" data-name="${sc.name}">บันทึกลง DB</button>
+          `}
+        </td>
+      </tr>
+    `).join('');
 
-// Reset profile settings to defaults
-function resetProfileSettings() {
-  if (confirm('Are you sure you want to reset all settings to defaults?')) {
-    profileSettingsData = {
-      store_name: 'Watch Configurator',
-      watermark_url: '',
-      watermark_opacity: 0.5,
-      watermark_position: 'bottom-right',
-      watermark_size: 100
-    };
-    
-    updateProfileSettingsForm();
-    saveProfileSettings();
-  }
-}
-
-// Initialize profile settings event listeners
-document.addEventListener('DOMContentLoaded', () => {
-  // Profile settings form elements
-  const storeNameInput = document.getElementById('store-name');
-  const watermarkUrlInput = document.getElementById('watermark-url');
-  const watermarkOpacityInput = document.getElementById('watermark-opacity');
-  const watermarkPositionInput = document.getElementById('watermark-position');
-  const watermarkSizeInput = document.getElementById('watermark-size');
-  const opacityValue = document.getElementById('opacity-value');
-  const sizeValue = document.getElementById('size-value');
-  const uploadWatermarkBtn = document.getElementById('upload-watermark');
-  const watermarkFileInput = document.getElementById('watermark-file');
-  const saveProfileBtn = document.getElementById('save-profile-settings');
-  const resetProfileBtn = document.getElementById('reset-profile-settings');
-  
-  // Opacity slider
-  if (watermarkOpacityInput && opacityValue) {
-    watermarkOpacityInput.addEventListener('input', () => {
-      opacityValue.textContent = watermarkOpacityInput.value + '%';
-      profileSettingsData.watermark_opacity = watermarkOpacityInput.value / 100;
-      updateWatermarkPreview();
-    });
-  }
-  
-  // Size slider
-  if (watermarkSizeInput && sizeValue) {
-    watermarkSizeInput.addEventListener('input', () => {
-      sizeValue.textContent = watermarkSizeInput.value + 'px';
-      profileSettingsData.watermark_size = parseInt(watermarkSizeInput.value);
-      updateWatermarkPreview();
-    });
-  }
-  
-  // Position dropdown
-  if (watermarkPositionInput) {
-    watermarkPositionInput.addEventListener('change', () => {
-      if (watermarkPositionInput.value !== 'custom') {
-        profileSettingsData.watermark_position = watermarkPositionInput.value;
-      }
-      updateWatermarkPreview();
-    });
-  }
-  
-  // Watermark URL input
-  if (watermarkUrlInput) {
-    watermarkUrlInput.addEventListener('input', () => {
-      profileSettingsData.watermark_url = watermarkUrlInput.value;
-      updateWatermarkPreview();
-    });
-  }
-  
-  // Upload watermark button
-  if (uploadWatermarkBtn && watermarkFileInput) {
-    uploadWatermarkBtn.addEventListener('click', () => {
-      watermarkFileInput.click();
-    });
-    
-    watermarkFileInput.addEventListener('change', async (event) => {
-      const file = event.target.files[0];
-      if (!file) return;
-      
-      try {
-        const client = getSupabaseClient();
-        if (!client) return;
-        
-        const fileName = `watermark-${Date.now()}.${file.name.split('.').pop()}`;
-        const { data, error } = await client.storage
-          .from('watermarks')
-          .upload(fileName, file);
+    // Add event listener for "บันทึกลง DB" buttons
+    document.querySelectorAll('.btn-save-to-table').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const name = e.target.dataset.name;
+        const { error } = await supabase
+          .from('subcategories')
+          .insert({ sku_id: skuId, group_key: groupKey, name, sort_order: 999 });
         
         if (error) {
-          console.error('Error uploading watermark:', error);
-          alert('Error uploading watermark: ' + error.message);
+          alert('Error: ' + error.message);
+        } else {
+          alert('บันทึกสำเร็จ!');
+          loadSubcategoriesForTable();
+        }
+      });
+    });
+
+    // Add event listener for "📷 รูป" buttons
+    document.querySelectorAll('.btn-upload-image').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const subcategoryId = e.target.dataset.id;
+        const subcategoryName = e.target.dataset.name;
+        uploadSubcategoryImage(subcategoryId, subcategoryName);
+      });
+    });
+  }
+
+  // Function to upload subcategory image
+  async function uploadSubcategoryImage(subcategoryId, subcategoryName) {
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
+
+    // Create file input
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.style.display = 'none';
+    document.body.appendChild(input);
+
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('ไฟล์ใหญ่เกินไป (สูงสุด 5MB)');
+        return;
+      }
+
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        alert('กรุณาเลือกไฟล์รูปภาพ');
+        return;
+      }
+
+      try {
+        // Show loading
+        const loadingBtn = document.querySelector(`[data-id="${subcategoryId}"]`);
+        const originalText = loadingBtn.textContent;
+        loadingBtn.textContent = '⏳ อัพโหลด...';
+        loadingBtn.disabled = true;
+
+        // Generate unique filename
+        const timestamp = Date.now();
+        const fileExt = file.name.split('.').pop();
+        const fileName = `subcategory-${subcategoryId}-${timestamp}.${fileExt}`;
+        const filePath = `subcategories/${fileName}`;
+
+        // Upload to Supabase Storage
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('watch-assets')
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: false
+          });
+
+        if (uploadError) {
+          throw uploadError;
+        }
+
+        // Get public URL
+        const { data: urlData } = supabase.storage
+          .from('watch-assets')
+          .getPublicUrl(filePath);
+
+        // Update subcategory with image URL
+        const { error: updateError } = await supabase
+          .from('subcategories')
+          .update({ image_url: urlData.publicUrl })
+          .eq('id', subcategoryId);
+
+        if (updateError) {
+          throw updateError;
+        }
+
+        alert('อัพโหลดรูปสำเร็จ!');
+        loadSubcategoriesForTable(); // Refresh table
+
+      } catch (error) {
+        console.error('Upload error:', error);
+        alert('เกิดข้อผิดพลาด: ' + error.message);
+      } finally {
+        // Restore button
+        loadingBtn.textContent = originalText;
+        loadingBtn.disabled = false;
+        document.body.removeChild(input);
+      }
+    };
+
+    // Trigger file dialog
+    input.click();
+  }
+  
+  // Initial population of filters
+  if (scFilterSku) {
+    populateSubcategoryFilters();
+  }
+
+  // --- Init ---
+  if (menuAddSku) {
+    refreshSkuTable();
+  }
+
+  // --- New admin single-page SKU manager wiring --- (duplicate block commented)
+  // const skuTableBody = document.querySelector('#sku-table tbody');
+  // const btnAddSkuTop = document.getElementById('btn-add-sku');
+  // const partModal = document.getElementById('part-modal');
+  // const pmClose = document.getElementById('pm-close');
+  // const pmSkuKey = document.getElementById('pm-sku-key');
+  // const pmGroupSelect = document.getElementById('pm-group-select');
+  // const btnAddGroup = document.getElementById('btn-add-group');
+  // const pmFiles = document.getElementById('pm-files');
+  // const pmThumbs = document.getElementById('pm-thumbs');
+  // Dragging state for part thumbnails
+  // let pmDragEl = null;
+  // const pmAddBtn = document.getElementById('pm-add-btn');
+
+  // Add Group Modal elements (dedup; active set defined later)
+  // const groupAddModal = document.getElementById('group-add-modal');
+  // const gamClose = document.getElementById('gam-close');
+  // const gamSkuKey = document.getElementById('gam-sku-key');
+  // const gamGroupList = document.getElementById('gam-group-list');
+  // const gamSave = document.getElementById('gam-save');
+  // const gamAddNewBtn = document.getElementById('gam-add-new');
+  // const gamNewKeyInput = document.getElementById('gam-new-key');
+  // const gamNewNameThInput = document.getElementById('gam-new-name-th');
+  // const gamNewNameEnInput = document.getElementById('gam-new-name-en');
+
+  function buildSkuRow(key, parts) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${key}</td>` +
+      `<td>${(parts && parts.__name) ? parts.__name : ''}</td>` +
+      `<td>${Object.keys(parts || {}).filter(k=>k !== '__name').length}</td>` +
+      `<td><div class="flex items-center gap-2">` +
+      `<button class="edit-sku btn btn-secondary" data-sku="${key}">âœï¸ à¹à¸à¹‰à¹„à¸‚</button>` +
+      `<button class="pm-open btn btn-secondary" data-sku="${key}">à¸ˆà¸±à¸"à¸à¸²à¸£à¸¥à¸²à¸¢</button>` +
+      `<button class="del-sku btn-text-danger" data-sku="${key}">à¸¥à¸š SKU</button>` +
+      `</div></td>`;
+    return tr;
+  }
+
+  // Delete SKU helper reused by table actions
+  async function deleteSkuById(key) {
+    if (!key) return;
+    if (!confirm('Delete this SKU and all its assets?')) return;
+    const supa = getSupabaseClient();
+    try {
+      if (supa) {
+        const bucket = window.SUPABASE_BUCKET || 'watch-assets';
+        try {
+          const { data: assetsToRemove, error: eFetch } = await supa
+            .from('assets')
+            .select('id,url')
+            .eq('sku_id', key);
+          if (eFetch) throw eFetch;
+          const paths = (assetsToRemove || [])
+            .map(a => {
+              const url = a && a.url ? String(a.url) : '';
+              const m = url.match(/\/storage\/v1\/object\/public\/(?:[^/]+)\/(.+)$/);
+              if (m && m[1]) return decodeURIComponent(m[1]);
+              const idx = url.indexOf('/' + bucket + '/');
+              if (idx !== -1) return url.slice(idx + bucket.length + 2);
+              return null;
+            })
+            .filter(Boolean);
+          if (paths.length) {
+            const { error: eRem } = await supa.storage.from(bucket).remove(paths);
+            if (eRem) console.warn('storage remove returned error', eRem);
+          }
+        } catch (e) {
+          console.warn('Failed to remove storage objects for SKU', key, e);
+        }
+        const { error: eDel } = await supa.from('assets').delete().eq('sku_id', key);
+        if (eDel) throw eDel;
+        const { error: eSku } = await supa.from('skus').delete().eq('id', key);
+        if (eSku) throw eSku;
+      }
+      // always remove local copy too
+      delete CATALOG[key];
+      localStorage.setItem('watchCatalog', JSON.stringify(CATALOG));
+      await maybeLoadCatalogFromSupabase();
+      refreshSkuSelect();
+      if (typeof renderAdminList === 'function') try { renderAdminList(); } catch (_) {}
+      if (typeof refreshSkuTable === 'function') try { refreshSkuTable(); } catch (_) {}
+      showToast('Deleted SKU successfully', 'success');
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to delete SKU: ' + (err && err.message ? err.message : String(err)), 'error');
+    }
+  }
+
+  // Render admin SKU table in admin.html
+  function refreshSkuTable() {
+    const tbody = document.querySelector('#sku-table tbody');
+    if (!tbody) return;
+    const q = (document.getElementById('sku-search')?.value || '').toLowerCase().trim();
+    const entries = Object.entries(CATALOG || {})
+      .filter(([key, parts]) => parts && typeof parts === 'object')
+      .sort((a, b) => ((a[1].__name || a[0]).localeCompare(b[1].__name || b[0])));
+    tbody.innerHTML = '';
+    let count = 0;
+    entries.forEach(([key, parts]) => {
+      const name = (parts && parts.__name) ? String(parts.__name) : '';
+      if (q && !(key.toLowerCase().includes(q) || name.toLowerCase().includes(q))) return;
+      const tr = document.createElement('tr');
+      const groups = Object.keys(parts || {}).filter(k => k !== '__name' && k !== '__created_at');
+      const groupsCount = groups.length;
+      const imagesCount = groups.reduce((sum, g) => sum + ((parts[g] || []).length), 0);
+      const createdAt = parts.__created_at ? new Date(parts.__created_at).toLocaleString() : '-';
+      tr.innerHTML = `
+        <td>${key}</td>
+        <td>${name || '-'}</td>
+        <td>${createdAt}</td>
+        <td>${imagesCount}</td>
+        <td>
+          <div class="flex items-center gap-2">
+            <button class="edit-sku btn btn-secondary" data-sku="${key}">Edit</button>
+            <button class="pm-open btn btn-secondary" data-sku="${key}">Manage parts</button>
+            <button class="del-sku btn-text-danger" data-sku="${key}">Delete</button>
+          </div>
+        </td>`;
+      tbody.appendChild(tr);
+      count++;
+    });
+    if (count === 0) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td colspan="5" class="text-center text-gray-500">No SKUs</td>';
+      tbody.appendChild(tr);
+    }
+    // Wire row actions
+    tbody.querySelectorAll('.edit-sku').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const sku = btn.getAttribute('data-sku');
+        if (typeof openEditSkuModal === 'function') {
+          openEditSkuModal(sku);
+        } else {
+          // Fallback to name-only modal if present
+          try { openEditSKUModal(sku); } catch (e) { console.warn('edit modal not available'); }
+        }
+      });
+    });
+    tbody.querySelectorAll('.pm-open').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const sku = btn.getAttribute('data-sku');
+        try { openPartModalForSKU(sku); } catch (e) { console.warn('openPartModalForSKU missing', e); }
+      });
+    });
+    tbody.querySelectorAll('.del-sku').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const sku = btn.getAttribute('data-sku');
+        await deleteSkuById(sku);
+      });
+    });
+  }
+
+  function renderSkuTable() {
+    const tableBody = document.getElementById('skuTableBody');
+    if (!tableBody) return;
+    
+    tableBody.innerHTML = '';
+    
+    skuData.forEach(sku => {
+      const row = document.createElement('tr');
+      
+      // Create store icon based on store name
+      let storeIcon = '';
+      if (sku.store_name && sku.store_name.toLowerCase().includes('lazada')) {
+        storeIcon = '<i class="store-icon lazada-icon" title="Lazada">🛒</i>';
+      } else if (sku.store_name && sku.store_name.toLowerCase().includes('shopee')) {
+        storeIcon = '<i class="store-icon shopee-icon" title="Shopee">🛍️</i>';
+      } else {
+        storeIcon = '<i class="store-icon default-icon" title="Store">🏪</i>';
+      }
+      
+      // Create image thumbnails
+      const imageThumbnails = sku.image_urls && sku.image_urls.length > 0 
+          ? sku.image_urls.map(url => `<img src="${url}" alt="Product image" class="thumbnail" onclick="window.open('${url}', '_blank')">`).join('')
+          : 'No images';
+      
+      // Create MCP Supabase status
+      const mcpStatus = sku.mcp_supabase_id 
+          ? `<span class="status-badge success">âœ" Synced</span>`
+          : `<span class="status-badge pending">Not synced</span>`;
+      
+      row.innerHTML = `
+          <td>${sku.sku}</td>
+          <td>${storeIcon} ${sku.store_name || 'N/A'}</td>
+          <td><a href="${sku.store_url || '#'}" target="_blank">${sku.store_url ? 'Visit Store' : 'N/A'}</a></td>
+          <td>${sku.product_name || 'N/A'}</td>
+          <td><a href="${sku.product_url || '#'}" target="_blank">${sku.product_url ? 'View Product' : 'N/A'}</a></td>
+          <td>${sku.price || 'N/A'}</td>
+          <td>${sku.stock || 'N/A'}</td>
+          <td class="image-cell">${imageThumbnails}</td>
+          <td>${mcpStatus}</td>
+          <td>
+              <button class="btn btn-primary btn-sm" onclick="editSku('${sku.sku}')">Edit</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteSku('${sku.sku}')">Delete</button>
+          </td>
+      `;
+      
+      tableBody.appendChild(row);
+    });
+  }
+
+  // part modal helpers
+  let modalContextSku = null;
+  // Edit SKU Name Modal Functions
+  let editSkuContext = null;
+  const editSkuModal = document.getElementById('edit-sku-modal');
+  const editSkuNameInput = document.getElementById('edit-sku-name-input');
+  const editSkuIdDisplay = document.getElementById('edit-sku-id-display');
+  const editSkuClose = document.getElementById('edit-sku-close');
+  const editSkuCancel = document.getElementById('edit-sku-cancel');
+  const editSkuSave = document.getElementById('edit-sku-save');
+
+  function openEditSKUModal(skuId) {
+    if (!skuId || !CATALOG[skuId]) return;
+    editSkuContext = skuId;
+    editSkuNameInput.value = CATALOG[skuId].__name || '';
+    editSkuIdDisplay.value = skuId;
+    if (editSkuModal) editSkuModal.classList.remove('hidden');
+  }
+
+  function closeEditSKUModal() {
+    editSkuContext = null;
+    if (editSkuModal) editSkuModal.classList.add('hidden');
+    if (editSkuNameInput) editSkuNameInput.value = '';
+    if (editSkuIdDisplay) editSkuIdDisplay.value = '';
+  }
+
+  async function saveEditSKU() {
+    if (!editSkuContext) return;
+    const newName = editSkuNameInput ? editSkuNameInput.value.trim() : '';
+    if (!newName) {
+      showToast('à¸à¸£à¸¸à¸"à¸²à¸à¸£à¸­à¸à¸Šà¸·à¹ˆà¸­ SKU', 'error');
+      return;
+    }
+
+    const supa = getSupabaseClient();
+    if (!supa) {
+      showToast('à¹„à¸¡à¹ˆà¸ªà¸²à¸¡à¸²à¸£à¸–à¹€à¸Šà¸·à¹ˆà¸­à¸¡à¸•à¹ˆà¸­ Supabase', 'error');
+      return;
+    }
+
+    try {
+      // Update in Supabase
+      const { error } = await supa
+        .from('skus')
+        .update({ name: newName })
+        .eq('id', editSkuContext);
+
+      if (error) throw error;
+
+      // Update local catalog
+      if (CATALOG[editSkuContext]) {
+        CATALOG[editSkuContext].__name = newName;
+      }
+      localStorage.setItem('watchCatalog', JSON.stringify(CATALOG));
+
+      showToast('à¹à¸à¹‰à¹„à¸‚à¸Šà¸·à¹ˆà¸­ SKU à¸ªà¸³à¹€à¸£à¹‡à¸ˆ', 'success');
+      closeEditSKUModal();
+      refreshSkuTable();
+      
+      // Update SKU selector if current SKU
+      if (editSkuContext === currentSKU) {
+        populateSkuSelector();
+      }
+    } catch (e) {
+      console.error(e);
+      showToast('à¹€à¸à¸´à¸"à¸‚à¹‰à¸­à¸œà¸´à¸"à¸žà¸¥à¸²à¸"à¸‚à¸"à¸°à¸šà¸±à¸™à¸—à¸¶à¸: ' + (e && e.message ? e.message : String(e)), 'error');
+    }
+  }
+
+  if (editSkuClose) editSkuClose.addEventListener('click', closeEditSKUModal);
+  if (editSkuCancel) editSkuCancel.addEventListener('click', closeEditSKUModal);
+  if (editSkuSave) editSkuSave.addEventListener('click', saveEditSKU);
+
+  // ===== SUBCATEGORY MANAGEMENT =====
+  const btnAddSubcategory = document.getElementById('btn-add-subcategory');
+  const subcategoryModal = document.getElementById('subcategory-modal');
+  const subcategoryModalClose = document.getElementById('subcategory-modal-close');
+  const subcategoryCancel = document.getElementById('subcategory-cancel');
+  const subcategorySave = document.getElementById('subcategory-save');
+  const subcategoryModalTitle = document.getElementById('subcategory-modal-title');
+  const scId = document.getElementById('sc-id');
+  const scName = document.getElementById('sc-name');
+  const scImageUrl = document.getElementById('sc-image-url');
+  const scImageFile = document.getElementById('sc-image-file');
+  const scUploadBtn = document.getElementById('sc-upload-btn');
+  const scImagePreview = document.getElementById('sc-image-preview');
+  const scImagePreviewContainer = document.getElementById('sc-image-preview-container');
+  const scSortOrder = document.getElementById('sc-sort-order');
+  const subcategoriesTable = document.getElementById('subcategories-table');
+  const scFilterSku = document.getElementById('sc-filter-sku');
+  const scFilterGroup = document.getElementById('sc-filter-group');
+  const scSkuSelect = document.getElementById('sc-sku-select');
+  const scGroupSelect = document.getElementById('sc-group-select');
+
+  let subcategoryContext = null;
+
+  // Open subcategory modal for adding new
+  async function openAddSubcategoryModal() {
+    subcategoryContext = null;
+    subcategoryModalTitle.textContent = 'Add Subcategory';
+    scId.value = '';
+    scName.value = '';
+    scImageUrl.value = '';
+    scSortOrder.value = '0';
+    scImagePreview.src = '';
+    scImagePreview.classList.add('hidden');
+    
+    // Load SKUs and part groups for selection
+    await loadSubcategoryFormData();
+    
+    if (subcategoryModal) subcategoryModal.classList.remove('hidden');
+  }
+
+  // Load data for subcategory form (SKUs and part groups)
+  async function loadSubcategoryFormData() {
+    const supa = getSupabaseClient();
+    if (!supa) return;
+
+    try {
+      // Load SKUs
+      const { data: skus, error: skuError } = await supa
+        .from('skus')
+        .select('id, name')
+        .order('name');
+
+      if (skuError) throw skuError;
+
+      // Load part groups
+      const { data: partGroups, error: groupError } = await supa
+        .from('part_groups')
+        .select('key, name_th, name_en')
+        .order('sort_order');
+
+      if (groupError) throw groupError;
+
+      // Populate filter dropdowns
+      if (scFilterSku) {
+        scFilterSku.innerHTML = '<option value="all">All SKUs</option>';
+        skus.forEach(sku => {
+          const option = document.createElement('option');
+          option.value = sku.id;
+          option.textContent = sku.name;
+          scFilterSku.appendChild(option);
+        });
+      }
+
+      if (scFilterGroup) {
+        scFilterGroup.innerHTML = '<option value="all">All Groups</option>';
+        partGroups.forEach(group => {
+          const option = document.createElement('option');
+          option.value = group.key;
+          option.textContent = `${group.name_th} (${group.name_en})`;
+          scFilterGroup.appendChild(option);
+        });
+      }
+
+      // Populate modal dropdowns
+      if (scSkuSelect) {
+        scSkuSelect.innerHTML = '<option value="">Select SKU</option>';
+        skus.forEach(sku => {
+          const option = document.createElement('option');
+          option.value = sku.id;
+          option.textContent = sku.name;
+          scSkuSelect.appendChild(option);
+        });
+      }
+
+      if (scGroupSelect) {
+        scGroupSelect.innerHTML = '<option value="">Select Part Group</option>';
+        partGroups.forEach(group => {
+          const option = document.createElement('option');
+          option.value = group.key;
+          option.textContent = `${group.name_th} (${group.name_en})`;
+          scGroupSelect.appendChild(option);
+        });
+      }
+
+    } catch (e) {
+      console.error(e);
+      showToast('เกิดข้อผิดพลาดในการโหลดข้อมูล: ' + (e.message || String(e)), 'error');
+    }
+  }
+
+  // Open subcategory modal for editing
+  async function openEditSubcategoryModal(id) {
+    const supa = getSupabaseClient();
+    if (!supa) {
+      showToast('ไม่สามารถเชื่อมต่อฐานข้อมูลได้', 'error');
+      return;
+    }
+
+    try {
+      const { data: subcategory, error } = await supa
+        .from('subcategories')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+
+      subcategoryContext = id;
+      subcategoryModalTitle.textContent = 'Edit Subcategory';
+      scId.value = subcategory.id;
+      scName.value = subcategory.name || '';
+      scImageUrl.value = subcategory.image_url || '';
+      scSortOrder.value = subcategory.sort_order || 0;
+      
+      // Load form data first
+      await loadSubcategoryFormData();
+      
+      // Set selected values
+      if (scSkuSelect) scSkuSelect.value = subcategory.sku_id || '';
+      if (scGroupSelect) scGroupSelect.value = subcategory.group_key || '';
+      
+      if (subcategory.image_url) {
+        scImagePreview.src = subcategory.image_url;
+        scImagePreview.classList.remove('hidden');
+      } else {
+        scImagePreview.classList.add('hidden');
+      }
+      
+      if (subcategoryModal) subcategoryModal.classList.remove('hidden');
+    } catch (e) {
+      console.error(e);
+      showToast('เกิดข้อผิดพลาดในการโหลดข้อมูล: ' + (e.message || String(e)), 'error');
+    }
+  }
+
+  // Close subcategory modal
+  function closeSubcategoryModal() {
+    subcategoryContext = null;
+    if (subcategoryModal) subcategoryModal.classList.add('hidden');
+  }
+
+  // Save subcategory
+  async function saveSubcategory() {
+    const name = scName.value.trim();
+    const skuId = scSkuSelect ? scSkuSelect.value : '';
+    const groupKey = scGroupSelect ? scGroupSelect.value : '';
+    
+    if (!name) {
+      showToast('กรุณาใส่ชื่อ Subcategory', 'error');
+      return;
+    }
+    
+    if (!skuId) {
+      showToast('กรุณาเลือก SKU', 'error');
+      return;
+    }
+    
+    if (!groupKey) {
+      showToast('กรุณาเลือก Part Group', 'error');
+      return;
+    }
+
+    const supa = getSupabaseClient();
+    if (!supa) {
+      showToast('ไม่สามารถเชื่อมต่อฐานข้อมูลได้', 'error');
+      return;
+    }
+
+    try {
+      const data = {
+        name: name,
+        sku_id: skuId,
+        group_key: groupKey,
+        image_url: scImageUrl.value.trim() || null,
+        sort_order: parseInt(scSortOrder.value) || 0
+      };
+
+      if (subcategoryContext) {
+        // Update existing
+        const { error } = await supa
+          .from('subcategories')
+          .update(data)
+          .eq('id', subcategoryContext);
+        
+        if (error) throw error;
+        showToast('อัปเดต Subcategory สำเร็จ', 'success');
+      } else {
+        // Create new
+        const { error } = await supa
+          .from('subcategories')
+          .insert(data);
+        
+        if (error) throw error;
+        showToast('เพิ่ม Subcategory สำเร็จ', 'success');
+      }
+
+      closeSubcategoryModal();
+      await loadSubcategories();
+    } catch (e) {
+      console.error(e);
+      showToast('เกิดข้อผิดพลาด: ' + (e.message || String(e)), 'error');
+    }
+  }
+
+  // Load subcategories
+  async function loadSubcategories() {
+    const supa = getSupabaseClient();
+    if (!supa) return;
+
+    try {
+      // Get filter values
+      const selectedSku = scFilterSku ? scFilterSku.value : '';
+      const selectedGroup = scFilterGroup ? scFilterGroup.value : '';
+
+      let query = supa
+        .from('subcategories')
+        .select(`
+          *,
+          skus:sku_id(name),
+          part_groups:group_key(name_th, name_en)
+        `)
+        .order('sort_order', { ascending: true });
+
+      // Apply filters
+      if (selectedSku && selectedSku !== 'all') {
+        query = query.eq('sku_id', selectedSku);
+      }
+      if (selectedGroup && selectedGroup !== 'all') {
+        query = query.eq('group_key', selectedGroup);
+      }
+
+      const { data: subcategories, error } = await query;
+
+      if (error) throw error;
+
+      const tbody = subcategoriesTable.querySelector('tbody');
+      if (!tbody) return;
+
+      tbody.innerHTML = '';
+
+      subcategories.forEach(subcategory => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>
+            ${subcategory.image_url ? 
+              `<img src="${subcategory.image_url}" alt="${subcategory.name}" class="w-12 h-12 object-cover rounded">` : 
+              '<div class="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-gray-500 text-xs">No Image</div>'
+            }
+          </td>
+          <td class="font-medium">${subcategory.name}</td>
+          <td>${subcategory.skus?.name || subcategory.sku_id}</td>
+          <td>${subcategory.part_groups?.name_th || subcategory.group_key}</td>
+          <td>${subcategory.sort_order}</td>
+          <td>
+            <button class="edit-subcategory px-2 py-1 rounded-md border text-sm bg-blue-600 text-white mr-2" data-id="${subcategory.id}">Edit</button>
+            <button class="delete-subcategory px-2 py-1 rounded-md border text-sm bg-red-600 text-white" data-id="${subcategory.id}">Delete</button>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+
+      // Wire up edit buttons
+      document.querySelectorAll('.edit-subcategory').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.dataset.id;
+          openEditSubcategoryModal(id);
+        });
+      });
+
+      // Wire up delete buttons
+      document.querySelectorAll('.delete-subcategory').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.dataset.id;
+          if (confirm('ต้องการลบ Subcategory นี้หรือไม่?')) {
+            await deleteSubcategory(id);
+          }
+        });
+      });
+
+    } catch (e) {
+      console.error(e);
+      showToast('เกิดข้อผิดพลาดในการโหลดข้อมูล: ' + (e.message || String(e)), 'error');
+    }
+  }
+
+  // Delete subcategory
+  async function deleteSubcategory(id) {
+    const supa = getSupabaseClient();
+    if (!supa) return;
+
+    try {
+      const { error } = await supa
+        .from('subcategories')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      showToast('ลบ Subcategory สำเร็จ', 'success');
+      await loadSubcategories();
+    } catch (e) {
+      console.error(e);
+      showToast('เกิดข้อผิดพลาดในการลบ: ' + (e.message || String(e)), 'error');
+    }
+  }
+
+  // Image upload handler
+  if (scUploadBtn && scImageFile) {
+    scUploadBtn.addEventListener('click', () => scImageFile.click());
+    scImageFile.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      try {
+        const supa = getSupabaseClient();
+        if (!supa) {
+          showToast('ไม่สามารถเชื่อมต่อฐานข้อมูลได้', 'error');
           return;
         }
-        
-        // Get public URL
-        const { data: urlData } = client.storage
-          .from('watermarks')
-          .getPublicUrl(fileName);
-        
-        if (watermarkUrlInput) {
-          watermarkUrlInput.value = urlData.publicUrl;
-          profileSettingsData.watermark_url = urlData.publicUrl;
-          updateWatermarkPreview();
-        }
-      } catch (error) {
-        console.error('Error uploading watermark:', error);
-        alert('Error uploading watermark: ' + error.message);
+
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}.${fileExt}`;
+        const filePath = `subcategories/${fileName}`;
+
+        const { error: uploadError } = await supa.storage
+          .from('images')
+          .upload(filePath, file);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supa.storage
+          .from('images')
+          .getPublicUrl(filePath);
+
+        scImageUrl.value = publicUrl;
+        scImagePreview.src = publicUrl;
+        scImagePreview.classList.remove('hidden');
+      } catch (e) {
+        console.error(e);
+        showToast('เกิดข้อผิดพลาดในการอัปโหลด: ' + (e.message || String(e)), 'error');
       }
     });
   }
-  
-  // Save button
-  if (saveProfileBtn) {
-    saveProfileBtn.addEventListener('click', saveProfileSettings);
+
+  // Event listeners for subcategory management
+  if (btnAddSubcategory) btnAddSubcategory.addEventListener('click', openAddSubcategoryModal);
+  if (subcategoryModalClose) subcategoryModalClose.addEventListener('click', closeSubcategoryModal);
+  if (subcategoryCancel) subcategoryCancel.addEventListener('click', closeSubcategoryModal);
+  if (subcategorySave) subcategorySave.addEventListener('click', saveSubcategory);
+
+  // Load subcategories when panel becomes visible
+  if (menuSubcategories) {
+    menuSubcategories.addEventListener('click', () => {
+      loadSubcategories();
+    });
   }
-  
-  // Reset button
-  if (resetProfileBtn) {
-    resetProfileBtn.addEventListener('click', resetProfileSettings);
+
+  // Filter change handlers
+  if (scFilterSku) {
+    scFilterSku.addEventListener('change', () => {
+      loadSubcategories();
+    });
   }
-  
-  // Open live preview button
-  const openLivePreviewBtn = document.getElementById('open-live-preview');
-  if (openLivePreviewBtn && window.openLivePreview) {
-    openLivePreviewBtn.addEventListener('click', window.openLivePreview);
+
+  if (scFilterGroup) {
+    scFilterGroup.addEventListener('change', () => {
+      loadSubcategories();
+    });
   }
-  
-  // Initialize watermark drag functionality
-  if (window.initWatermarkDrag) window.initWatermarkDrag();
-});
 
-
-
-
-
-
-
-
-
+}); // Close DOMContentLoaded
