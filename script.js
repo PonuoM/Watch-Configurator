@@ -2344,6 +2344,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   const btnAddSkuTop = document.getElementById('btn-add-sku');
   const pmAddBtn = document.getElementById('pm-add-btn');
   
+  // Track which SKU is currently active in the part modal
+  let modalContextSku = null;
   // Dragging state for part thumbnails
   let pmDragEl = null;
 
@@ -3162,6 +3164,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Subcategory Management Logic (moved to main section)
 
+  const scFilterSku = document.getElementById('sc-filter-sku');
+  const scFilterGroup = document.getElementById('sc-filter-group');
+
   async function populateSubcategoryFilters() {
     const supabase = getSupabaseClient();
     if (!supabase) return;
@@ -3612,7 +3617,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // part modal helpers
-  let modalContextSku = null;
   // Edit SKU Name Modal Functions
   let editSkuContext = null;
   const editSkuModal = document.getElementById('edit-sku-modal');
@@ -3700,8 +3704,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   const scImagePreviewContainer = document.getElementById('sc-image-preview-container');
   const scSortOrder = document.getElementById('sc-sort-order');
   const subcategoriesTable = document.getElementById('subcategories-table');
-  const scFilterSku = document.getElementById('sc-filter-sku');
-  const scFilterGroup = document.getElementById('sc-filter-group');
   const scSkuSelect = document.getElementById('sc-sku-select');
   const scGroupSelect = document.getElementById('sc-group-select');
 
